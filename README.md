@@ -33,8 +33,8 @@ Abra o QR code no Expo Go (celular) ou use `i` / `a` no terminal para iOS / Andr
 
 ## Variáveis de ambiente
 
-| Variável | Descrição | Exemplo |
-|---|---|---|
+| Variável              | Descrição                 | Exemplo                    |
+| --------------------- | ------------------------- | -------------------------- |
 | `EXPO_PUBLIC_API_URL` | URL base da API proxy-api | `http://192.168.2.93:3333` |
 
 > O prefixo `EXPO_PUBLIC_` é obrigatório para variáveis acessíveis no runtime do app.
@@ -72,4 +72,4 @@ Todo conteúdo do app é em **português do Brasil** e valores monetários em **
 
 ## Backend
 
-Este app consome a API [proxy-api](../proxy-api) (NestJS + Prisma + PostgreSQL + Stripe). Autenticação via JWT RS256 (Bearer token). Veja a documentação do backend para o contrato completo dos endpoints.
+Este app consome a API [proxy-api](https://github.com/iproxy-apps/proxy-api) (NestJS + Prisma + PostgreSQL + Stripe). Autenticação via JWT RS256 (Bearer token). Veja a documentação do backend para o contrato completo dos endpoints.
