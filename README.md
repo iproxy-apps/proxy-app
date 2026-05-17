@@ -6,6 +6,7 @@ App mobile do **Proxy** — marketplace de serviços que conecta clientes que pr
 
 - [Expo](https://expo.dev) SDK 54 · React Native 0.81 · React 19
 - TypeScript (strict)
+- [Expo Router](https://docs.expo.dev/router/introduction/) 6 (roteamento file-based)
 - [NativeWind](https://www.nativewind.dev) 4 (Tailwind CSS para React Native)
 - ESLint + Prettier
 
@@ -56,12 +57,14 @@ npm run type-check     # tsc --noEmit
 
 ```
 proxy-app/
-├── App.tsx              # Entry point
+├── app/                 # Rotas (Expo Router, file-based)
+│   ├── _layout.tsx      # Layout raiz
+│   └── index.tsx        # Tela inicial
 ├── global.css           # Tailwind base
 ├── tailwind.config.js   # Design tokens
 ├── babel.config.js      # Babel + NativeWind
 ├── metro.config.js      # Metro + NativeWind
-└── src/                 # (a evoluir) screens, components, lib, types
+└── src/                 # (a evoluir) components, lib, types
 ```
 
 ## Design system

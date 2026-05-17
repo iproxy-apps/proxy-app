@@ -6,6 +6,7 @@ Mobile app (React Native / Expo) for the Proxy marketplace — a task/service ma
 
 - **Runtime**: Expo SDK 54 (React Native 0.81, React 19)
 - **Language**: TypeScript (strict)
+- **Routing**: Expo Router 6 (file-based, `app/` directory, typed routes enabled)
 - **Styling**: NativeWind 4 (Tailwind CSS for React Native)
 - **Formatting**: Prettier (no semicolons, single quotes, trailing commas)
 - **Linting**: ESLint 9 with `eslint-config-expo` (flat config)
@@ -31,16 +32,33 @@ Defined in `.env` (gitignored) and documented in `.env.example`. Expo requires t
 
 Access from code via `process.env.EXPO_PUBLIC_API_URL`.
 
+## Routing
+
+Expo Router with file-based routing. Each file under [app/](./app) is a route; `_layout.tsx` wraps nested routes. The root [_layout.tsx](./app/_layout.tsx) imports `global.css` (Tailwind) and wraps everything in `SafeAreaProvider`. Typed routes are enabled (`app.json` → `experiments.typedRoutes`), so `<Link href="/...">` is autocompleted.
+
+Route groups (folders wrapped in parens, e.g. `(auth)`) organize routes without adding a segment to the URL. Deep link scheme: `proxyapp://`.
+
 ## Design system
 
-Derived from the Lovable web prototype (see `LOVABLE_PROMPT.md`). Defined in [tailwind.config.js](./tailwind.config.js).
+Direction: **premium-neutro** (Linear/Stripe/Notion vibe). Defined in [tailwind.config.js](./tailwind.config.js).
 
-- **Primary**: deep green `hsl(158, 55%, 14%)`
-- **Accent**: lime `hsl(78, 75%, 62%)`
-- **Background**: warm off-white `hsl(60, 20%, 97%)`
+- **Primary**: graphite `hsl(220, 10%, 12%)`
+- **Accent**: mustard yellow `hsl(45, 95%, 55%)`
+- **Background**: warm off-white `hsl(40, 20%, 97%)`
+- **Foreground**: graphite (same as primary)
 - **Status colors** (task lifecycle): `status-available` (grey), `status-accepted` (blue), `status-onway` (purple), `status-progress` (yellow), `status-validating` (orange), `status-done` (green), `status-cancelled` (red)
 
-Status enum mirrors the backend `TaskStatus` in [proxy-api/prisma/schema.prisma](../proxy-api/prisma/schema.prisma#L21-L29): `available → accepted → on_the_way → in_progress → verification_required → completed | canceled`.
+Status enum mirrors the backend `TaskStatus` in [proxy-api/prisma/schema.prisma](../proxy-api/prisma/schema.prisma#L21-L29): `available → accepted → on_the_way → in_progress → verification_required → completed | canceled | payout_failed`. The states `accepted` and `on_the_way` are enum-only — no use-case writes to them; UI ignores them (see [SPEC.md §7.2](./SPEC.md)).
+
+### NativeWind 4 gotchas
+
+Some Tailwind utilities don't translate reliably to React Native `style` in this version. When layout misbehaves, **don't fight the framework** — drop to inline `style` for that property:
+
+- `text-center` on `<Text>` → use `style={{ textAlign: 'center' }}`
+- `self-start` on `<View>` in column-flex parent → use `style={{ alignSelf: 'flex-start' }}` or define `width`
+- Nested `flex-1` + `justify-center` on tall mobile screens looks bad with little content — prefer top-aligned content + `<View style={{ flex: 1 }} />` spacer + bottom-anchored CTAs
+
+Default: use `className` for colors, fonts, borders, simple spacing. Drop to inline `style` only when the result is visually wrong.
 
 ## Backend integration
 
@@ -52,7 +70,7 @@ All endpoints live under the proxy-api base URL. Auth uses JWT RS256 Bearer toke
 - **Copy**: all user-facing text in **Portuguese (Brasil)**.
 - **Money formatting**: `R$ 1.234,56` (BRL, Brazilian locale).
 - **File layout** (to evolve):
-  - `src/screens/` — one folder per screen
+  - `app/` — routes (Expo Router, file-based)
   - `src/components/` — reusable components
   - `src/lib/` — helpers (api client, formatters)
   - `src/types/` — shared types
@@ -60,3 +78,13 @@ All endpoints live under the proxy-api base URL. Auth uses JWT RS256 Bearer toke
 ## Prototype reference
 
 The visual/UX reference lives in the Lovable export at `~/Downloads/proxy-prototype`. The output is web (React + Vite + shadcn/ui), so treat it as a design reference, not code to port directly.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- ALWAYS read graphify-out/GRAPH_REPORT.md before reading any source files, running grep/glob searches, or answering codebase questions. The graph is your primary map of the codebase.
+- IF graphify-out/wiki/index.md EXISTS, navigate it instead of reading raw files
+- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
