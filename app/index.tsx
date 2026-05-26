@@ -2,11 +2,13 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { ShieldCheck, Sparkles, Wallet } from 'lucide-react-native'
+import { useEffect } from 'react'
 import { Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Button } from '../src/components/Button'
 import { Logo } from '../src/components/Logo'
+import { useProxyAuth } from '../src/hooks/useProxyAuth'
 
 const ACCENT = 'hsl(45, 95%, 55%)'
 const CREAM = 'hsl(40, 20%, 96%)'
@@ -20,6 +22,17 @@ const features = [
 ] as const
 
 export default function Splash() {
+  const { hydrated, isAuthenticated } = useProxyAuth()
+
+  useEffect(() => {
+    if (hydrated && isAuthenticated) {
+      router.replace('/home')
+    }
+  }, [hydrated, isAuthenticated])
+
+  // Render nothing while we wait for hydration or during the redirect.
+  if (!hydrated || isAuthenticated) return null
+
   return (
     <LinearGradient
       colors={['hsl(220, 10%, 8%)', 'hsl(220, 12%, 14%)']}

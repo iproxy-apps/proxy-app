@@ -64,6 +64,39 @@ Default: use `className` for colors, fonts, borders, simple spacing. Drop to inl
 
 All endpoints live under the proxy-api base URL. Auth uses JWT RS256 Bearer tokens. Currency is BRL. Error messages come back in Portuguese. See [proxy-api/CLAUDE.md](../proxy-api/CLAUDE.md) for the full API surface.
 
+## Screen layout pattern
+
+Every screen with a primary CTA follows this exact skeleton. CTAs always live **inside** the scroll, at the end, pushed down by a `flex: 1` spacer. **Never sticky/fixed outside the scroll** — that pattern was tested and explicitly rejected.
+
+```tsx
+<SafeAreaView style={{ flex: 1, backgroundColor: BG }}>
+  <ScreenHeader title="..." />
+  <KeyboardAvoidingView style={{ flex: 1 }}> {/* only when the screen has form inputs */}
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{
+        flexGrow: 1,           // critical: lets the spacer expand
+        paddingHorizontal: 24,
+        paddingBottom: 24,
+      }}
+    >
+      {/* heading / form / cards — top-aligned */}
+      <View>...</View>
+      <View style={{ flex: 1 }} />   {/* absorbs leftover space */}
+      <View style={{ marginTop: 24 }}>
+        <Button>Continuar</Button>    {/* CTA at the end of the scroll */}
+      </View>
+    </ScrollView>
+  </KeyboardAvoidingView>
+</SafeAreaView>
+```
+
+Behavior:
+- **Short content** → spacer expands, button sits at the bottom of the visible area.
+- **Long content** → spacer collapses, button sits naturally after the last item (visible after scrolling to the end).
+
+Reference: [app/index.tsx](./app/index.tsx), [app/(auth)/choose-profile.tsx](./app/(auth)/choose-profile.tsx), [app/(auth)/sign-up.tsx](./app/(auth)/sign-up.tsx).
+
 ## Conventions
 
 - **Styling**: prefer NativeWind `className` over `StyleSheet`. Use design tokens from `tailwind.config.js`; avoid raw hex values in components.
