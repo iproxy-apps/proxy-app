@@ -13,7 +13,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@stripe/stripe-react-native": "0.50.3",
+    "@stripe/stripe-react-native": "^0.67.0",
     "axios": "^1.16.1",
     "expo": "~54.0.33",
     "expo-constants": "~18.0.13",
