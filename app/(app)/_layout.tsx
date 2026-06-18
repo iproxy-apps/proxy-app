@@ -1,7 +1,10 @@
+import { StripeProvider } from '@stripe/stripe-react-native'
 import { router, Stack } from 'expo-router'
 import { useEffect } from 'react'
 
 import { useProxyAuth } from '../../src/hooks/useProxyAuth'
+
+const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY
 
 export default function AppLayout() {
   const { hydrated, isAuthenticated } = useProxyAuth()
@@ -12,8 +15,11 @@ export default function AppLayout() {
     }
   }, [hydrated, isAuthenticated])
 
-  // Render nothing while we wait for hydration or during the redirect.
   if (!hydrated || !isAuthenticated) return null
 
-  return <Stack screenOptions={{ headerShown: false, gestureEnabled: false }} />
+  return (
+    <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY ?? ''}>
+      <Stack screenOptions={{ headerShown: false, gestureEnabled: false }} />
+    </StripeProvider>
+  )
 }

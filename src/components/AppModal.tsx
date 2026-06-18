@@ -42,6 +42,9 @@ export function AppModal() {
   const message = useModalStore((s) => s.message)
   const okLabel = useModalStore((s) => s.okLabel)
   const onOk = useModalStore((s) => s.onOk)
+  const cancelLabel = useModalStore((s) => s.cancelLabel)
+  const onCancel = useModalStore((s) => s.onCancel)
+  const destructive = useModalStore((s) => s.destructive)
   const hide = useModalStore((s) => s.hide)
 
   const cfg = variants[variant]
@@ -51,6 +54,13 @@ export function AppModal() {
     onOk?.()
     hide()
   }
+
+  const handleCancel = () => {
+    onCancel?.()
+    hide()
+  }
+
+  const hasCancel = !!cancelLabel
 
   return (
     <RNModal
@@ -120,9 +130,34 @@ export function AppModal() {
             {message}
           </Text>
 
-          <Button variant="primary" size="lg" fullWidth onPress={handleOk}>
-            {okLabel}
-          </Button>
+          {hasCancel ? (
+            <View style={{ flexDirection: 'row', gap: 10, width: '100%' }}>
+              <View style={{ flex: 1 }}>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  fullWidth
+                  onPress={handleCancel}
+                >
+                  {cancelLabel}
+                </Button>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button
+                  variant={destructive ? 'destructive' : 'primary'}
+                  size="lg"
+                  fullWidth
+                  onPress={handleOk}
+                >
+                  {okLabel}
+                </Button>
+              </View>
+            </View>
+          ) : (
+            <Button variant="primary" size="lg" fullWidth onPress={handleOk}>
+              {okLabel}
+            </Button>
+          )}
         </Pressable>
       </Pressable>
     </RNModal>

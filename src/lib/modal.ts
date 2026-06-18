@@ -21,5 +21,13 @@ export const modal = {
 
   show: (params: ModalParams) => useModalStore.getState().show(params),
 
+  confirm: (params: ModalParams) =>
+    useModalStore.getState().show({
+      variant: 'info',
+      cancelLabel: 'Cancelar',
+      okLabel: 'Continuar',
+      ...params,
+    }),
+
   hide: () => useModalStore.getState().hide(),
 }

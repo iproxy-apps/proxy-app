@@ -36,6 +36,10 @@ export interface ResetPasswordPayload {
   newPassword: string
 }
 
+export interface CreateCardPayload {
+  token: string
+}
+
 export interface ApiErrorBody {
   message: string
   errorCode?: string

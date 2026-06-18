@@ -8,6 +8,9 @@ export interface ModalParams {
   message: string
   okLabel?: string
   onOk?: () => void
+  cancelLabel?: string
+  onCancel?: () => void
+  destructive?: boolean
 }
 
 interface ModalState {
@@ -17,6 +20,9 @@ interface ModalState {
   message: string
   okLabel: string
   onOk?: () => void
+  cancelLabel?: string
+  onCancel?: () => void
+  destructive: boolean
   show: (params: ModalParams) => void
   hide: () => void
 }
@@ -28,7 +34,29 @@ export const useModalStore = create<ModalState>((set) => ({
   message: '',
   okLabel: 'OK',
   onOk: undefined,
-  show: ({ variant = 'error', title, message, okLabel = 'OK', onOk }) =>
-    set({ open: true, variant, title, message, okLabel, onOk }),
+  cancelLabel: undefined,
+  onCancel: undefined,
+  destructive: false,
+  show: ({
+    variant = 'error',
+    title,
+    message,
+    okLabel = 'OK',
+    onOk,
+    cancelLabel,
+    onCancel,
+    destructive = false,
+  }) =>
+    set({
+      open: true,
+      variant,
+      title,
+      message,
+      okLabel,
+      onOk,
+      cancelLabel,
+      onCancel,
+      destructive,
+    }),
   hide: () => set({ open: false }),
 }))

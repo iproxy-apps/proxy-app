@@ -1,22 +1,26 @@
-import { Sparkles } from 'lucide-react-native'
+import type { LucideIcon } from 'lucide-react-native'
+import type { ReactNode } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { Button } from '../../src/components/Button'
-import { Logo } from '../../src/components/Logo'
-import { useProxyAuth } from '../../src/hooks/useProxyAuth'
-
 const GRAPHITE = 'hsl(220, 10%, 12%)'
 const MUTED = 'hsl(220, 8%, 42%)'
+const ACCENT_TINT = 'hsla(45, 95%, 55%, 0.15)'
 const ACCENT = 'hsl(45, 95%, 55%)'
 const BG = 'hsl(40, 20%, 97%)'
+const BORDER = 'hsl(40, 10%, 88%)'
 
-export default function Home() {
-  const { session, signOut } = useProxyAuth()
-  const firstName = session?.name?.split(' ')[0] ?? 'por aí'
+type Props = {
+  Icon: LucideIcon
+  title: string
+  subtitle: string
+  description: string
+  footer?: ReactNode
+}
 
+export function TabPlaceholder({ Icon, title, subtitle, description, footer }: Props) {
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: BG }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={['top']}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
@@ -27,10 +31,6 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
       >
         <View style={{ paddingTop: 12 }}>
-          <Logo color={GRAPHITE} />
-        </View>
-
-        <View style={{ marginTop: 32 }}>
           <Text
             style={{
               fontSize: 28,
@@ -40,7 +40,7 @@ export default function Home() {
               lineHeight: 34,
             }}
           >
-            Olá, {firstName} 👋
+            {title}
           </Text>
           <Text
             style={{
@@ -50,11 +50,7 @@ export default function Home() {
               lineHeight: 20,
             }}
           >
-            Você está logado como{' '}
-            <Text style={{ fontWeight: '700', color: GRAPHITE }}>
-              {session?.userType === 'PROXY' ? 'Proxy' : 'Cliente'}
-            </Text>
-            .
+            {subtitle}
           </Text>
         </View>
 
@@ -65,7 +61,7 @@ export default function Home() {
             borderRadius: 16,
             backgroundColor: 'white',
             borderWidth: 1,
-            borderColor: 'hsl(40, 10%, 88%)',
+            borderColor: BORDER,
           }}
         >
           <View
@@ -73,13 +69,13 @@ export default function Home() {
               width: 40,
               height: 40,
               borderRadius: 12,
-              backgroundColor: 'hsla(45, 95%, 55%, 0.15)',
+              backgroundColor: ACCENT_TINT,
               alignItems: 'center',
               justifyContent: 'center',
               marginBottom: 12,
             }}
           >
-            <Sparkles size={20} color={ACCENT} />
+            <Icon size={20} color={ACCENT} />
           </View>
           <Text
             style={{
@@ -89,21 +85,16 @@ export default function Home() {
               marginBottom: 4,
             }}
           >
-            Sua home está em construção
+            Em construção
           </Text>
           <Text style={{ fontSize: 13, color: MUTED, lineHeight: 19 }}>
-            Em breve você verá suas tarefas, ganhos e tudo o que importa por
-            aqui.
+            {description}
           </Text>
         </View>
 
         <View style={{ flex: 1 }} />
 
-        <View style={{ marginTop: 24 }}>
-          <Button variant="outline" size="lg" fullWidth onPress={signOut}>
-            Sair
-          </Button>
-        </View>
+        {footer ? <View style={{ marginTop: 24 }}>{footer}</View> : null}
       </ScrollView>
     </SafeAreaView>
   )
