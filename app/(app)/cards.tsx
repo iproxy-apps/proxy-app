@@ -19,11 +19,11 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Button } from '../../src/components/Button'
 import { ScreenHeader } from '../../src/components/ScreenHeader'
-import { extractErrorMessage } from '../../src/lib/api/client'
-import { apis } from '../../src/lib/api/routes'
-import { modal } from '../../src/lib/modal'
-import { useCardStore } from '../../src/store/card-store'
-import type { Card } from '../../src/types/card'
+import { extractErrorMessage } from '@/apis/api-client'
+import { apis } from '@/apis/apis'
+import type { TCard } from '@/apis/cards/cards-api-types'
+import { modal } from '@/lib/modal'
+import { useCardStore } from '@/store/card-store'
 
 import {
   ACCENT,
@@ -192,7 +192,7 @@ export default function Cards() {
 // Card preview (gradient card with masked digits + brand)
 // -----------------------------------------------------------------------------
 
-function CardPreview({ card }: { card: Card }) {
+function CardPreview({ card }: { card: TCard }) {
   return (
     <View style={{ marginTop: 28 }}>
       <LinearGradient

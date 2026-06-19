@@ -3,8 +3,8 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios'
 
-import { clearToken, getToken } from '../secure-store'
-import type { ApiErrorBody } from './types'
+import { clearToken, getToken } from '@/lib/secure-store'
+import type { TApiErrorBody } from './auth/auth-api-types'
 
 const baseURL = process.env.EXPO_PUBLIC_API_URL
 
@@ -38,7 +38,7 @@ export function registerUnauthorizedHandler(handler: () => void) {
 
 api.interceptors.response.use(
   (res) => res,
-  async (error: AxiosError<ApiErrorBody>) => {
+  async (error: AxiosError<TApiErrorBody>) => {
     if (error.response?.status === 401) {
       await clearToken()
       onUnauthorized?.()
@@ -53,7 +53,7 @@ api.interceptors.response.use(
  */
 export function extractErrorMessage(error: unknown): string {
   // eslint-disable-next-line import/no-named-as-default-member
-  if (axios.isAxiosError<ApiErrorBody>(error)) {
+  if (axios.isAxiosError<TApiErrorBody>(error)) {
     const fromBody = error.response?.data?.message
     if (fromBody) return fromBody
     if (error.code === 'ECONNABORTED') {

@@ -19,10 +19,10 @@ import { FormInput } from '../../src/components/form/FormInput'
 import { FormToggle } from '../../src/components/form/FormToggle'
 import { ScreenHeader } from '../../src/components/ScreenHeader'
 import { useProxyAuth } from '../../src/hooks/useProxyAuth'
-import { extractErrorMessage } from '../../src/lib/api/client'
+import { extractErrorMessage } from '@/apis/api-client'
 import { maskDocument, maskPhone, unmask } from '../../src/lib/masks'
 import { modal } from '../../src/lib/modal'
-import type { UserType } from '../../src/types/session'
+import type { TUserType } from '@/apis/auth/auth-api-types'
 
 import { BG, GRAPHITE, MUTED, SUCCESS } from '@/common/theme/colors'
 
@@ -38,9 +38,9 @@ type SignUpFormData = {
 
 export default function SignUp() {
   const { userType: userTypeParam } = useLocalSearchParams<{
-    userType?: UserType
+    userType?: TUserType
   }>()
-  const userType: UserType = userTypeParam === 'PROXY' ? 'PROXY' : 'CLIENT'
+  const userType: TUserType = userTypeParam === 'PROXY' ? 'PROXY' : 'CLIENT'
   const isProxy = userType === 'PROXY'
 
   const { signUp } = useProxyAuth()

@@ -1,12 +1,12 @@
 import { useCallback } from 'react'
 
-import { apis } from '../lib/api/routes'
+import { apis } from '@/apis/apis'
 import type {
-  CreateAccountPayload,
-  SignInPayload,
-} from '../lib/api/types'
-import { useAuthStore } from '../store/auth-store'
-import { useCardStore } from '../store/card-store'
+  TCreateAccountPayload,
+  TSignInPayload,
+} from '@/apis/auth/auth-api-types'
+import { useAuthStore } from '@/store/auth-store'
+import { useCardStore } from '@/store/card-store'
 
 /**
  * Single source of truth for authentication actions.
@@ -24,7 +24,7 @@ export function useProxyAuth() {
   const clearSession = useAuthStore((s) => s.clearSession)
 
   const signUp = useCallback(
-    async (payload: CreateAccountPayload) => {
+    async (payload: TCreateAccountPayload) => {
       const { session: token } = await apis.auth.create(payload)
       await setSession(token)
     },
@@ -32,7 +32,7 @@ export function useProxyAuth() {
   )
 
   const signIn = useCallback(
-    async (payload: SignInPayload) => {
+    async (payload: TSignInPayload) => {
       const { session: token } = await apis.auth.session(payload)
       await setSession(token)
     },

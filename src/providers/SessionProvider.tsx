@@ -1,8 +1,8 @@
 import { useEffect, type ReactNode } from 'react'
 
-import { registerUnauthorizedHandler } from '../lib/api/client'
-import { getToken } from '../lib/secure-store'
-import { useAuthStore } from '../store/auth-store'
+import { registerUnauthorizedHandler } from '@/apis/api-client'
+import { getToken } from '@/lib/secure-store'
+import { useAuthStore } from '@/store/auth-store'
 
 type Props = {
   children: ReactNode

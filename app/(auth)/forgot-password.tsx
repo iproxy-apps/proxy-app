@@ -23,8 +23,8 @@ import { Button } from '../../src/components/Button'
 import { FormInput } from '../../src/components/form/FormInput'
 import { OtpInput } from '../../src/components/form/OtpInput'
 import { ScreenHeader } from '../../src/components/ScreenHeader'
-import { extractErrorMessage } from '../../src/lib/api/client'
-import { apis } from '../../src/lib/api/routes'
+import { extractErrorMessage } from '@/apis/api-client'
+import { apis } from '@/apis/apis'
 import { modal } from '../../src/lib/modal'
 
 import {

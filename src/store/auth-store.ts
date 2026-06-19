@@ -1,12 +1,12 @@
 import { jwtDecode } from 'jwt-decode'
 import { create } from 'zustand'
 
-import { clearToken, saveToken } from '../lib/secure-store'
-import type { SessionPayload } from '../types/session'
+import { clearToken, saveToken } from '@/lib/secure-store'
+import type { TSessionPayload } from '@/apis/auth/auth-api-types'
 
 interface AuthState {
   token: string | null
-  session: SessionPayload | null
+  session: TSessionPayload | null
   hydrated: boolean
 
   setSession: (token: string) => Promise<void>
@@ -14,10 +14,10 @@ interface AuthState {
   hydrate: (token: string | null) => void
 }
 
-function decodeOrNull(token: string | null): SessionPayload | null {
+function decodeOrNull(token: string | null): TSessionPayload | null {
   if (!token) return null
   try {
-    return jwtDecode<SessionPayload>(token)
+    return jwtDecode<TSessionPayload>(token)
   } catch {
     return null
   }

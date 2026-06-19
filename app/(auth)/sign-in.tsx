@@ -18,7 +18,7 @@ import { FormInput } from '../../src/components/form/FormInput'
 import { Logo } from '../../src/components/Logo'
 import { ScreenHeader } from '../../src/components/ScreenHeader'
 import { useProxyAuth } from '../../src/hooks/useProxyAuth'
-import { extractErrorMessage } from '../../src/lib/api/client'
+import { extractErrorMessage } from '@/apis/api-client'
 import { modal } from '../../src/lib/modal'
 
 import { BG, GRAPHITE, MUTED } from '@/common/theme/colors'

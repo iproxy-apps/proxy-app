@@ -1,11 +1,11 @@
 import { isAxiosError } from 'axios'
 import { create } from 'zustand'
 
-import { apis } from '../lib/api/routes'
-import type { Card } from '../types/card'
+import { apis } from '@/apis/apis'
+import type { TCard } from '@/apis/cards/cards-api-types'
 
 interface CardState {
-  card: Card | null
+  card: TCard | null
   loading: boolean
   loaded: boolean
   /** Fetches once. Subsequent calls are no-ops while loaded. */
@@ -13,7 +13,7 @@ interface CardState {
   /** Force a refetch (use after add/remove mutations). */
   reload: () => Promise<void>
   /** Set the card directly without hitting the network (e.g., after a delete). */
-  setCard: (card: Card | null) => void
+  setCard: (card: TCard | null) => void
   /** Clear state — call from signOut. */
   reset: () => void
 }
