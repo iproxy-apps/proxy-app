@@ -10,10 +10,7 @@ import { Button } from '../src/components/Button'
 import { Logo } from '../src/components/Logo'
 import { useProxyAuth } from '../src/hooks/useProxyAuth'
 
-const ACCENT = 'hsl(45, 95%, 55%)'
-const CREAM = 'hsl(40, 20%, 96%)'
-const CREAM_75 = 'hsla(40, 20%, 96%, 0.75)'
-const CREAM_45 = 'hsla(40, 20%, 96%, 0.45)'
+import { ACCENT, CREAM, CREAM_45, CREAM_75 } from '@/common/theme/colors'
 
 const features = [
   { Icon: ShieldCheck, text: 'Pagamento retido até a tarefa ser concluída' },

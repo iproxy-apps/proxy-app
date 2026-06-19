@@ -2,11 +2,18 @@ import { AlertCircle, CheckCircle2, Info } from 'lucide-react-native'
 import { useState } from 'react'
 import { Modal as RNModal, Pressable, Text, View } from 'react-native'
 
+import {
+  DESTRUCTIVE,
+  DESTRUCTIVE_TINT,
+  GRAPHITE,
+  INFO,
+  INFO_TINT,
+  MUTED,
+  SUCCESS,
+  SUCCESS_TINT,
+} from '@/common/theme/colors'
 import { useModalStore, type ModalVariant } from '../store/modal-store'
 import { Button } from './Button'
-
-const GRAPHITE = 'hsl(220, 10%, 12%)'
-const MUTED = 'hsl(220, 8%, 42%)'
 
 type VariantConfig = {
   Icon: typeof AlertCircle
@@ -18,20 +25,20 @@ type VariantConfig = {
 const variants: Record<ModalVariant, VariantConfig> = {
   error: {
     Icon: AlertCircle,
-    color: 'hsl(358, 70%, 52%)',
-    tint: 'hsla(358, 70%, 52%, 0.12)',
+    color: DESTRUCTIVE,
+    tint: DESTRUCTIVE_TINT,
     defaultTitle: 'Algo deu errado',
   },
   success: {
     Icon: CheckCircle2,
-    color: 'hsl(152, 60%, 38%)',
-    tint: 'hsla(152, 60%, 38%, 0.12)',
+    color: SUCCESS,
+    tint: SUCCESS_TINT,
     defaultTitle: 'Tudo certo!',
   },
   info: {
     Icon: Info,
-    color: 'hsl(215, 80%, 52%)',
-    tint: 'hsla(215, 80%, 52%, 0.12)',
+    color: INFO,
+    tint: INFO_TINT,
     defaultTitle: 'Informação',
   },
 }

@@ -6,13 +6,15 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Button } from '../../src/components/Button'
 import { ScreenHeader } from '../../src/components/ScreenHeader'
+import {
+  BORDER,
+  CREAM,
+  GRAPHITE,
+  GRAPHITE_TINT_SOFT,
+  MUTED,
+} from '@/common/theme/colors'
 
 type UserType = 'CLIENT' | 'PROXY'
-
-const GRAPHITE = 'hsl(220, 10%, 12%)'
-const MUTED = 'hsl(220, 8%, 42%)'
-const BORDER = 'hsl(40, 10%, 88%)'
-const CREAM = 'hsl(40, 20%, 96%)'
 
 const options = [
   {
@@ -83,7 +85,7 @@ export default function ChooseProfile() {
                   borderWidth: isSelected ? 2 : 1,
                   borderColor: isSelected ? GRAPHITE : BORDER,
                   backgroundColor: isSelected
-                    ? 'hsla(220, 10%, 12%, 0.04)'
+                    ? GRAPHITE_TINT_SOFT
                     : 'white',
                   borderRadius: 16,
                   padding: 18,

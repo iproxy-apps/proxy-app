@@ -3,6 +3,8 @@ import { ArrowLeft } from 'lucide-react-native'
 import { ReactNode } from 'react'
 import { Pressable, Text, View } from 'react-native'
 
+import { GRAPHITE } from '@/common/theme/colors'
+
 type Props = {
   title?: string
   back?: boolean
@@ -51,7 +53,7 @@ export function ScreenHeader({ title, back = true, onBack, right }: Props) {
             textAlign: 'center',
             fontSize: 15,
             fontWeight: '600',
-            color: 'hsl(220, 10%, 12%)',
+            color: GRAPHITE,
           }}
         >
           {title}

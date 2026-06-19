@@ -3,12 +3,14 @@ import type { ReactNode } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-const GRAPHITE = 'hsl(220, 10%, 12%)'
-const MUTED = 'hsl(220, 8%, 42%)'
-const ACCENT_TINT = 'hsla(45, 95%, 55%, 0.15)'
-const ACCENT = 'hsl(45, 95%, 55%)'
-const BG = 'hsl(40, 20%, 97%)'
-const BORDER = 'hsl(40, 10%, 88%)'
+import {
+  ACCENT,
+  ACCENT_TINT,
+  BG,
+  BORDER,
+  GRAPHITE,
+  MUTED,
+} from '@/common/theme/colors'
 
 type Props = {
   Icon: LucideIcon

@@ -3,10 +3,17 @@ import { useEffect, useRef } from 'react'
 import { Animated, Pressable, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import {
+  BORDER,
+  DESTRUCTIVE,
+  DESTRUCTIVE_TINT,
+  GRAPHITE,
+  INFO,
+  INFO_TINT,
+  SUCCESS,
+  SUCCESS_TINT,
+} from '@/common/theme/colors'
 import { useToastStore, type ToastVariant } from '../store/toast-store'
-
-const GRAPHITE = 'hsl(220, 10%, 12%)'
-const BORDER = 'hsl(40, 10%, 88%)'
 
 const TOAST_DURATION_MS = 2800
 const ENTER_DURATION_MS = 220
@@ -21,18 +28,18 @@ type VariantConfig = {
 const variants: Record<ToastVariant, VariantConfig> = {
   success: {
     Icon: CheckCircle2,
-    color: 'hsl(152, 60%, 38%)',
-    tint: 'hsla(152, 60%, 38%, 0.12)',
+    color: SUCCESS,
+    tint: SUCCESS_TINT,
   },
   info: {
     Icon: Info,
-    color: 'hsl(215, 80%, 52%)',
-    tint: 'hsla(215, 80%, 52%, 0.12)',
+    color: INFO,
+    tint: INFO_TINT,
   },
   error: {
     Icon: AlertCircle,
-    color: 'hsl(358, 70%, 52%)',
-    tint: 'hsla(358, 70%, 52%, 0.12)',
+    color: DESTRUCTIVE,
+    tint: DESTRUCTIVE_TINT,
   },
 }
 

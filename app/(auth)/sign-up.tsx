@@ -24,10 +24,7 @@ import { maskDocument, maskPhone, unmask } from '../../src/lib/masks'
 import { modal } from '../../src/lib/modal'
 import type { UserType } from '../../src/types/session'
 
-const GRAPHITE = 'hsl(220, 10%, 12%)'
-const MUTED = 'hsl(220, 8%, 42%)'
-const SUCCESS = 'hsl(152, 60%, 38%)'
-const BG = 'hsl(40, 20%, 97%)'
+import { BG, GRAPHITE, MUTED, SUCCESS } from '@/common/theme/colors'
 
 type SignUpFormData = {
   name: string

@@ -16,13 +16,16 @@ import { useProxyAuth } from '../../../src/hooks/useProxyAuth'
 import { modal } from '../../../src/lib/modal'
 import { useCardStore } from '../../../src/store/card-store'
 
-const GRAPHITE = 'hsl(220, 10%, 12%)'
-const MUTED = 'hsl(220, 8%, 42%)'
-const SUBTLE = 'hsl(220, 8%, 60%)'
-const ACCENT = 'hsl(45, 95%, 55%)'
-const ACCENT_TINT = 'hsla(45, 95%, 55%, 0.18)'
-const BORDER = 'hsl(40, 10%, 88%)'
-const BG = 'hsl(40, 20%, 97%)'
+import {
+  ACCENT,
+  ACCENT_BORDER,
+  ACCENT_TINT_STRONG,
+  BG,
+  BORDER,
+  GRAPHITE,
+  MUTED,
+  SUBTLE,
+} from '@/common/theme/colors'
 
 const initialsOf = (name?: string | null) => {
   if (!name) return '?'
@@ -151,9 +154,9 @@ export default function Profile() {
               paddingHorizontal: 10,
               paddingVertical: 5,
               borderRadius: 999,
-              backgroundColor: ACCENT_TINT,
+              backgroundColor: ACCENT_TINT_STRONG,
               borderWidth: 1,
-              borderColor: 'hsla(45, 95%, 55%, 0.35)',
+              borderColor: ACCENT_BORDER,
             }}
           >
             <Text

@@ -4,10 +4,7 @@ import { Platform, StyleSheet } from 'react-native'
 
 import { useProxyAuth } from '../../../src/hooks/useProxyAuth'
 
-const GRAPHITE = 'hsl(220, 10%, 12%)'
-const MUTED = 'hsl(220, 8%, 42%)'
-const BORDER = 'hsl(40, 10%, 88%)'
-const BG = 'hsl(40, 20%, 97%)'
+import { BG, BORDER, GRAPHITE, MUTED } from '@/common/theme/colors'
 
 type IconProps = { color: string; focused: boolean }
 

@@ -2,11 +2,14 @@ import { forwardRef, useState, type ReactNode } from 'react'
 import { Controller, useFormContext, type RegisterOptions } from 'react-hook-form'
 import { Text, TextInput, type TextInputProps, View } from 'react-native'
 
-const GRAPHITE = 'hsl(220, 10%, 12%)'
-const MUTED = 'hsl(220, 8%, 42%)'
-const BORDER = 'hsl(40, 10%, 88%)'
-const FOCUS = 'hsl(220, 10%, 22%)'
-const DESTRUCTIVE = 'hsl(358, 70%, 52%)'
+import {
+  BORDER,
+  DESTRUCTIVE,
+  FOCUS,
+  GRAPHITE,
+  MUTED,
+  SUBTLE,
+} from '@/common/theme/colors'
 
 type Props = Omit<TextInputProps, 'value' | 'onChangeText' | 'onBlur'> & {
   name: string
@@ -86,7 +89,7 @@ export const FormInput = forwardRef<TextInput, Props>(function FormInput(
                   onBlur()
                 }}
                 placeholder={placeholder}
-                placeholderTextColor="hsl(220, 8%, 60%)"
+                placeholderTextColor={SUBTLE}
                 style={{
                   flex: 1,
                   paddingHorizontal: leftSlot ? 10 : 14,

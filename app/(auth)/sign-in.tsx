@@ -21,9 +21,7 @@ import { useProxyAuth } from '../../src/hooks/useProxyAuth'
 import { extractErrorMessage } from '../../src/lib/api/client'
 import { modal } from '../../src/lib/modal'
 
-const GRAPHITE = 'hsl(220, 10%, 12%)'
-const MUTED = 'hsl(220, 8%, 42%)'
-const BG = 'hsl(40, 20%, 97%)'
+import { BG, GRAPHITE, MUTED } from '@/common/theme/colors'
 
 type SignInFormData = {
   email: string

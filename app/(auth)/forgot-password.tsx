@@ -27,11 +27,13 @@ import { extractErrorMessage } from '../../src/lib/api/client'
 import { apis } from '../../src/lib/api/routes'
 import { modal } from '../../src/lib/modal'
 
-const GRAPHITE = 'hsl(220, 10%, 12%)'
-const MUTED = 'hsl(220, 8%, 42%)'
-const BORDER = 'hsl(40, 10%, 88%)'
-const ACCENT_TINT = 'hsla(220, 10%, 12%, 0.06)'
-const BG = 'hsl(40, 20%, 97%)'
+import {
+  BG,
+  BORDER,
+  GRAPHITE,
+  GRAPHITE_TINT,
+  MUTED,
+} from '@/common/theme/colors'
 
 type Step = 1 | 2 | 3
 
@@ -153,7 +155,7 @@ function StepHeader({ Icon, title, subtitle }: StepHeaderProps) {
           width: 48,
           height: 48,
           borderRadius: 14,
-          backgroundColor: ACCENT_TINT,
+          backgroundColor: GRAPHITE_TINT,
           alignItems: 'center',
           justifyContent: 'center',
         }}

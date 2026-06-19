@@ -25,15 +25,19 @@ import { modal } from '../../src/lib/modal'
 import { useCardStore } from '../../src/store/card-store'
 import type { Card } from '../../src/types/card'
 
-const GRAPHITE = 'hsl(220, 10%, 12%)'
-const MUTED = 'hsl(220, 8%, 42%)'
-const ACCENT = 'hsl(45, 95%, 55%)'
-const ACCENT_TINT = 'hsla(45, 95%, 55%, 0.15)'
-const BORDER = 'hsl(40, 10%, 88%)'
-const CREAM = 'hsl(40, 20%, 96%)'
-const CREAM_75 = 'hsla(40, 20%, 96%, 0.75)'
-const CREAM_45 = 'hsla(40, 20%, 96%, 0.45)'
-const BG = 'hsl(40, 20%, 97%)'
+import {
+  ACCENT,
+  ACCENT_BORDER_STRONG,
+  ACCENT_TINT,
+  ACCENT_TINT_STRONG,
+  BG,
+  BORDER,
+  CREAM,
+  CREAM_45,
+  CREAM_75,
+  GRAPHITE,
+  MUTED,
+} from '@/common/theme/colors'
 
 const brandDisplay = (brand: string) => {
   const map: Record<string, string> = {
@@ -227,9 +231,9 @@ function CardPreview({ card }: { card: Card }) {
               width: 34,
               height: 24,
               borderRadius: 6,
-              backgroundColor: 'hsla(45, 95%, 55%, 0.18)',
+              backgroundColor: ACCENT_TINT_STRONG,
               borderWidth: 1,
-              borderColor: 'hsla(45, 95%, 55%, 0.45)',
+              borderColor: ACCENT_BORDER_STRONG,
             }}
           />
         </View>

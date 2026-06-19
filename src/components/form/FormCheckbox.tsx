@@ -2,10 +2,7 @@ import { Check } from 'lucide-react-native'
 import { Controller, useFormContext, type RegisterOptions } from 'react-hook-form'
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 
-const GRAPHITE = 'hsl(220, 10%, 12%)'
-const ACCENT = 'hsl(45, 95%, 55%)'
-const BORDER = 'hsl(40, 10%, 88%)'
-const DESTRUCTIVE = 'hsl(358, 70%, 52%)'
+import { ACCENT, BORDER, DESTRUCTIVE, GRAPHITE } from '@/common/theme/colors'
 
 type Props = {
   name: string

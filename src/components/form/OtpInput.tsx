@@ -6,9 +6,7 @@ import {
   View,
 } from 'react-native'
 
-const GRAPHITE = 'hsl(220, 10%, 12%)'
-const BORDER = 'hsl(40, 10%, 88%)'
-const FOCUS = 'hsl(220, 10%, 22%)'
+import { BORDER, FOCUS, GRAPHITE } from '@/common/theme/colors'
 
 type Props = {
   length?: number

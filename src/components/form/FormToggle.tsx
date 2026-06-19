@@ -1,10 +1,7 @@
 import { Controller, useFormContext, type RegisterOptions } from 'react-hook-form'
 import { Pressable, Text, View } from 'react-native'
 
-const GRAPHITE = 'hsl(220, 10%, 12%)'
-const MUTED = 'hsl(220, 8%, 42%)'
-const BORDER = 'hsl(40, 10%, 88%)'
-const DESTRUCTIVE = 'hsl(358, 70%, 52%)'
+import { BORDER, CREAM, DESTRUCTIVE, GRAPHITE, MUTED } from '@/common/theme/colors'
 
 type Option<T extends string> = {
   value: T
@@ -68,7 +65,7 @@ export function FormToggle<T extends string>({
                     style={{
                       fontSize: 13,
                       fontWeight: '600',
-                      color: isSelected ? 'hsl(40, 20%, 96%)' : MUTED,
+                      color: isSelected ? CREAM : MUTED,
                     }}
                   >
                     {opt.label}
