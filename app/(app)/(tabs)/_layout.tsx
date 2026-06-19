@@ -1,11 +1,5 @@
 import { Tabs } from 'expo-router'
-import {
-  CreditCard,
-  History,
-  Home,
-  User,
-  Wallet,
-} from 'lucide-react-native'
+import { History, Home, User, Wallet } from 'lucide-react-native'
 import { Platform, StyleSheet } from 'react-native'
 
 import { useProxyAuth } from '../../../src/hooks/useProxyAuth'
@@ -57,14 +51,6 @@ export default function TabsLayout() {
         options={{
           tabBarLabel: isProxy ? 'Tarefas' : 'Início',
           tabBarIcon: makeIcon(Home),
-        }}
-      />
-      <Tabs.Screen
-        name="cards"
-        options={{
-          tabBarLabel: 'Cartões',
-          tabBarIcon: makeIcon(CreditCard),
-          ...(isProxy ? { href: null } : {}),
         }}
       />
       <Tabs.Screen

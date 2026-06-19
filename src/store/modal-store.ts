@@ -7,7 +7,7 @@ export interface ModalParams {
   title?: string
   message: string
   okLabel?: string
-  onOk?: () => void
+  onOk?: () => void | Promise<void>
   cancelLabel?: string
   onCancel?: () => void
   destructive?: boolean
@@ -19,7 +19,7 @@ interface ModalState {
   title?: string
   message: string
   okLabel: string
-  onOk?: () => void
+  onOk?: () => void | Promise<void>
   cancelLabel?: string
   onCancel?: () => void
   destructive: boolean

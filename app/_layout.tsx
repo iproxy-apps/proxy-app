@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 import { AppModal } from '../src/components/AppModal'
+import { Toast } from '../src/components/Toast'
 import { SessionProvider } from '../src/providers/SessionProvider'
 
 import '../global.css'
@@ -16,6 +17,7 @@ export default function RootLayout() {
         </Stack>
         <StatusBar style="auto" />
         <AppModal />
+        <Toast />
       </SessionProvider>
     </SafeAreaProvider>
   )

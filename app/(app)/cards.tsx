@@ -1,25 +1,29 @@
 import { CardField, useStripe } from '@stripe/stripe-react-native'
-import { isAxiosError } from 'axios'
 import { LinearGradient } from 'expo-linear-gradient'
 import { CreditCard, X } from 'lucide-react-native'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
-  ActivityIndicator,
+  Animated,
+  Dimensions,
+  Easing,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { Button } from '../../../src/components/Button'
-import { extractErrorMessage } from '../../../src/lib/api/client'
-import { apis } from '../../../src/lib/api/routes'
-import { modal } from '../../../src/lib/modal'
-import type { Card } from '../../../src/types/card'
+import { Button } from '../../src/components/Button'
+import { ScreenHeader } from '../../src/components/ScreenHeader'
+import { extractErrorMessage } from '../../src/lib/api/client'
+import { apis } from '../../src/lib/api/routes'
+import { modal } from '../../src/lib/modal'
+import { useCardStore } from '../../src/store/card-store'
+import type { Card } from '../../src/types/card'
 
 const GRAPHITE = 'hsl(220, 10%, 12%)'
 const MUTED = 'hsl(220, 8%, 42%)'
@@ -47,30 +51,21 @@ const brandDisplay = (brand: string) => {
 }
 
 export default function Cards() {
-  const [card, setCard] = useState<Card | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [sheetOpen, setSheetOpen] = useState(false)
-  const [removing, setRemoving] = useState(false)
+  const card = useCardStore((s) => s.card)
+  const loading = useCardStore((s) => s.loading)
+  const loaded = useCardStore((s) => s.loaded)
+  const loadCard = useCardStore((s) => s.load)
+  const reloadCard = useCardStore((s) => s.reload)
+  const setCardInStore = useCardStore((s) => s.setCard)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await apis.cards.fetch()
-      setCard(data)
-    } catch (e) {
-      if (isAxiosError(e) && e.response?.status === 404) {
-        setCard(null)
-      } else {
-        modal.error(extractErrorMessage(e))
-      }
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   useEffect(() => {
-    load()
-  }, [load])
+    loadCard()
+  }, [loadCard])
+
+  // Treat as loading until the first fetch has resolved (or 404'd).
+  const showLoading = loading || !loaded
 
   const openAdd = () => {
     if (card) {
@@ -79,7 +74,11 @@ export default function Cards() {
         message:
           'O cartão atual será removido e o novo cartão ficará no lugar.',
         okLabel: 'Substituir',
-        onOk: () => setSheetOpen(true),
+        // Wait for the confirm modal to finish dismissing before sliding the
+        // sheet in — otherwise both animations run on top of each other.
+        onOk: () => {
+          setTimeout(() => setSheetOpen(true), 340)
+        },
       })
     } else {
       setSheetOpen(true)
@@ -94,15 +93,13 @@ export default function Cards() {
       okLabel: 'Remover',
       destructive: true,
       onOk: async () => {
-        setRemoving(true)
         try {
           await apis.cards.delete(card.id)
-          setCard(null)
-          modal.success('Cartão removido.')
+          setCardInStore(null)
         } catch (e) {
-          modal.error(extractErrorMessage(e))
-        } finally {
-          setRemoving(false)
+          // Defer the error modal until after the confirm modal has closed
+          // to avoid the iOS "already presenting" stacking bug.
+          setTimeout(() => modal.error(extractErrorMessage(e)), 280)
         }
       },
     })
@@ -110,6 +107,8 @@ export default function Cards() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={['top']}>
+      <ScreenHeader title="Cartão" />
+
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
@@ -119,17 +118,17 @@ export default function Cards() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ paddingTop: 12 }}>
+        <View style={{ paddingTop: 4 }}>
           <Text
             style={{
-              fontSize: 28,
+              fontSize: 26,
               fontWeight: '700',
               color: GRAPHITE,
               letterSpacing: -0.5,
-              lineHeight: 34,
+              lineHeight: 32,
             }}
           >
-            Cartões
+            Seu cartão
           </Text>
           <Text
             style={{
@@ -139,14 +138,12 @@ export default function Cards() {
               lineHeight: 20,
             }}
           >
-            Seu cartão pra contratar serviços.
+            Usado pra contratar serviços no app.
           </Text>
         </View>
 
-        {loading ? (
-          <View style={{ marginTop: 60, alignItems: 'center' }}>
-            <ActivityIndicator color={GRAPHITE} />
-          </View>
+        {showLoading ? (
+          <CardSkeleton />
         ) : card ? (
           <CardPreview card={card} />
         ) : (
@@ -155,7 +152,7 @@ export default function Cards() {
 
         <View style={{ flex: 1 }} />
 
-        {!loading ? (
+        {!showLoading ? (
           <View style={{ marginTop: 24, gap: 10 }}>
             <Button variant="primary" size="xl" fullWidth onPress={openAdd}>
               {card ? 'Substituir cartão' : 'Adicionar cartão'}
@@ -166,7 +163,6 @@ export default function Cards() {
                 variant="outline"
                 size="lg"
                 fullWidth
-                loading={removing}
                 onPress={handleRemove}
               >
                 Remover cartão
@@ -179,10 +175,9 @@ export default function Cards() {
       <AddCardSheet
         visible={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        onSaved={(saved) => {
-          setCard(saved)
+        onSuccess={() => {
           setSheetOpen(false)
-          modal.success('Cartão adicionado!')
+          reloadCard()
         }}
       />
     </SafeAreaView>
@@ -202,8 +197,9 @@ function CardPreview({ card }: { card: Card }) {
         end={{ x: 1, y: 1 }}
         style={{
           borderRadius: 20,
-          padding: 22,
-          aspectRatio: 1.6,
+          paddingVertical: 18,
+          paddingHorizontal: 20,
+          aspectRatio: 1.78,
           justifyContent: 'space-between',
         }}
       >
@@ -310,6 +306,45 @@ function CardPreview({ card }: { card: Card }) {
 }
 
 // -----------------------------------------------------------------------------
+// Loading skeleton — same footprint as CardPreview so the layout doesn't shift.
+// -----------------------------------------------------------------------------
+
+function CardSkeleton() {
+  const pulse = useRef(new Animated.Value(0.55)).current
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0.55,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ]),
+    )
+    loop.start()
+    return () => loop.stop()
+  }, [pulse])
+
+  return (
+    <Animated.View style={{ marginTop: 28, opacity: pulse }}>
+      <View
+        style={{
+          borderRadius: 20,
+          aspectRatio: 1.78,
+          backgroundColor: 'hsl(40, 12%, 90%)',
+        }}
+      />
+    </Animated.View>
+  )
+}
+
+// -----------------------------------------------------------------------------
 // Empty state
 // -----------------------------------------------------------------------------
 
@@ -364,46 +399,105 @@ function EmptyState() {
 type AddCardSheetProps = {
   visible: boolean
   onClose: () => void
-  onSaved: (card: Card) => void
+  onSuccess: () => void
 }
 
-function AddCardSheet({ visible, onClose, onSaved }: AddCardSheetProps) {
+const SCREEN_HEIGHT = Dimensions.get('window').height
+
+function AddCardSheet({ visible, onClose, onSuccess }: AddCardSheetProps) {
   const { createPaymentMethod } = useStripe()
   const [complete, setComplete] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [mounted, setMounted] = useState(visible)
+  const [cardFieldKey, setCardFieldKey] = useState(0)
+  const [sheetError, setSheetError] = useState<string | null>(null)
+
+  const opacity = useRef(new Animated.Value(0)).current
+  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current
+
+  useEffect(() => {
+    if (visible) {
+      setMounted(true)
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 0.55,
+          duration: 280,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 420,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start()
+    } else {
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 220,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: SCREEN_HEIGHT,
+          duration: 260,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start(({ finished }) => {
+        if (finished) {
+          setMounted(false)
+          // Reset local state so the next open is a fresh form.
+          setComplete(false)
+          setSheetError(null)
+          setCardFieldKey((k) => k + 1)
+        }
+      })
+    }
+  }, [visible, opacity, translateY])
 
   const handleSave = async () => {
-    if (!complete) return
+    if (!complete || submitting) return
+    setSheetError(null)
     setSubmitting(true)
     try {
       const { paymentMethod, error } = await createPaymentMethod({
         paymentMethodType: 'Card',
       })
       if (error || !paymentMethod) {
-        modal.error(error?.message ?? 'Cartão inválido. Confira os dados.')
+        setSheetError(error?.message ?? 'Cartão inválido. Confira os dados.')
         return
       }
-      const saved = await apis.cards.create({ token: paymentMethod.id })
-      onSaved(saved)
+      await apis.cards.create({ token: paymentMethod.id })
+      onSuccess()
     } catch (e) {
-      modal.error(extractErrorMessage(e))
+      setSheetError(extractErrorMessage(e))
     } finally {
       setSubmitting(false)
     }
   }
 
+  if (!mounted) return null
+
   return (
     <Modal
-      visible={visible}
+      visible
       transparent
-      animationType="slide"
+      animationType="none"
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <Pressable
-        onPress={onClose}
-        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }}
-      />
+      <Animated.View
+        style={{
+          ...StyleSheet.absoluteFillObject,
+          backgroundColor: 'black',
+          opacity,
+        }}
+      >
+        <Pressable style={{ flex: 1 }} onPress={onClose} />
+      </Animated.View>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -413,14 +507,16 @@ function AddCardSheet({ visible, onClose, onSaved }: AddCardSheetProps) {
           right: 0,
           bottom: 0,
         }}
+        pointerEvents="box-none"
       >
-        <View
+        <Animated.View
           style={{
             backgroundColor: BG,
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
             padding: 24,
             paddingBottom: 36,
+            transform: [{ translateY }],
           }}
         >
           <View
@@ -464,28 +560,83 @@ function AddCardSheet({ visible, onClose, onSaved }: AddCardSheetProps) {
               fontSize: 13,
               color: MUTED,
               lineHeight: 19,
-              marginBottom: 20,
+              marginBottom: 22,
             }}
           >
             Cobramos só quando você contrata uma tarefa. Pagamento retido até a
             conclusão.
           </Text>
 
-          <CardField
-            postalCodeEnabled={false}
-            placeholders={{ number: '0000 0000 0000 0000' }}
-            cardStyle={{
-              backgroundColor: 'white',
-              borderColor: BORDER,
-              borderWidth: 1,
-              borderRadius: 12,
-              fontSize: 15,
-              textColor: GRAPHITE,
-              placeholderColor: 'hsl(220, 8%, 60%)',
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: '600',
+              color: GRAPHITE,
+              marginBottom: 6,
             }}
-            style={{ width: '100%', height: 52, marginBottom: 20 }}
-            onCardChange={(d) => setComplete(d.complete)}
-          />
+          >
+            Dados do cartão
+          </Text>
+
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: BORDER,
+              borderRadius: 12,
+              backgroundColor: 'white',
+              overflow: 'hidden',
+              marginBottom: 8,
+            }}
+          >
+            <CardField
+              key={cardFieldKey}
+              postalCodeEnabled={false}
+              placeholders={{ number: '0000 0000 0000 0000' }}
+              cardStyle={{
+                backgroundColor: '#FFFFFF',
+                textColor: '#1F2433',
+                placeholderColor: '#94A3B8',
+                cursorColor: '#1F2433',
+                fontSize: 16,
+                borderWidth: 0,
+                borderColor: '#FFFFFF',
+              }}
+              style={{
+                width: '100%',
+                height: 50,
+                backgroundColor: '#FFFFFF',
+              }}
+              onCardChange={(d) => {
+                setComplete(d.complete)
+                if (sheetError) setSheetError(null)
+              }}
+            />
+          </View>
+
+          {sheetError ? (
+            <Text
+              style={{
+                fontSize: 13,
+                color: 'hsl(358, 70%, 52%)',
+                lineHeight: 18,
+                marginBottom: 16,
+                fontWeight: '500',
+              }}
+            >
+              {sheetError}
+            </Text>
+          ) : (
+            <Text
+              style={{
+                fontSize: 12,
+                color: MUTED,
+                lineHeight: 18,
+                marginBottom: 22,
+              }}
+            >
+              Use os dados do seu cartão de crédito.
+            </Text>
+          )}
 
           <Button
             variant="primary"
@@ -497,7 +648,7 @@ function AddCardSheet({ visible, onClose, onSaved }: AddCardSheetProps) {
           >
             Salvar cartão
           </Button>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   )

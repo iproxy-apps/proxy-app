@@ -1,4 +1,5 @@
 import { AlertCircle, CheckCircle2, Info } from 'lucide-react-native'
+import { useState } from 'react'
 import { Modal as RNModal, Pressable, Text, View } from 'react-native'
 
 import { useModalStore, type ModalVariant } from '../store/modal-store'
@@ -50,12 +51,27 @@ export function AppModal() {
   const cfg = variants[variant]
   const { Icon } = cfg
 
-  const handleOk = () => {
-    onOk?.()
-    hide()
+  const [okLoading, setOkLoading] = useState(false)
+
+  const handleOk = async () => {
+    if (!onOk) {
+      hide()
+      return
+    }
+    try {
+      const result = onOk()
+      if (result instanceof Promise) {
+        setOkLoading(true)
+        await result
+      }
+    } finally {
+      setOkLoading(false)
+      hide()
+    }
   }
 
   const handleCancel = () => {
+    if (okLoading) return
     onCancel?.()
     hide()
   }
@@ -137,6 +153,7 @@ export function AppModal() {
                   variant="outline"
                   size="lg"
                   fullWidth
+                  disabled={okLoading}
                   onPress={handleCancel}
                 >
                   {cancelLabel}
@@ -147,6 +164,7 @@ export function AppModal() {
                   variant={destructive ? 'destructive' : 'primary'}
                   size="lg"
                   fullWidth
+                  loading={okLoading}
                   onPress={handleOk}
                 >
                   {okLabel}
@@ -154,7 +172,13 @@ export function AppModal() {
               </View>
             </View>
           ) : (
-            <Button variant="primary" size="lg" fullWidth onPress={handleOk}>
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              loading={okLoading}
+              onPress={handleOk}
+            >
               {okLabel}
             </Button>
           )}

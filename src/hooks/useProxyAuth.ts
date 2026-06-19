@@ -6,6 +6,7 @@ import type {
   SignInPayload,
 } from '../lib/api/types'
 import { useAuthStore } from '../store/auth-store'
+import { useCardStore } from '../store/card-store'
 
 /**
  * Single source of truth for authentication actions.
@@ -40,6 +41,7 @@ export function useProxyAuth() {
 
   const signOut = useCallback(async () => {
     await clearSession()
+    useCardStore.getState().reset()
   }, [clearSession])
 
   return {
