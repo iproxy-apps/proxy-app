@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router'
 import { History, Home, User, Wallet } from 'lucide-react-native'
 import { Platform, StyleSheet } from 'react-native'
 
-import { useProxyAuth } from '../../../src/hooks/useProxyAuth'
+import { useProxyAuth } from '@/feature/auth/hooks/useProxyAuth'
 
 import { BG, BORDER, GRAPHITE, MUTED } from '@/common/theme/colors'
 

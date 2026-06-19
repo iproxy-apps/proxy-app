@@ -1,7 +1,7 @@
 import { Home as HomeIcon } from 'lucide-react-native'
 
-import { TabPlaceholder } from '../../../src/components/TabPlaceholder'
-import { useProxyAuth } from '../../../src/hooks/useProxyAuth'
+import { TabPlaceholder } from '@/shared/components/TabPlaceholder'
+import { useProxyAuth } from '@/feature/auth/hooks/useProxyAuth'
 
 export default function Home() {
   const { session } = useProxyAuth()

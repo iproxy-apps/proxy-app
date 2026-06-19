@@ -1,6 +1,6 @@
 import { History as HistoryIcon } from 'lucide-react-native'
 
-import { TabPlaceholder } from '../../../src/components/TabPlaceholder'
+import { TabPlaceholder } from '@/shared/components/TabPlaceholder'
 
 export default function History() {
   return (

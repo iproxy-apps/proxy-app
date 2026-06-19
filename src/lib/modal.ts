@@ -1,4 +1,4 @@
-import { useModalStore, type ModalParams } from '../store/modal-store'
+import { useModalStore, type ModalParams } from '@/store/modal-store'
 
 /**
  * Imperative API for the global app modal. Can be called from anywhere —

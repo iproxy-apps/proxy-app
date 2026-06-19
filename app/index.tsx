@@ -6,9 +6,9 @@ import { useEffect } from 'react'
 import { Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { Button } from '../src/components/Button'
-import { Logo } from '../src/components/Logo'
-import { useProxyAuth } from '../src/hooks/useProxyAuth'
+import { Button } from '@/shared/components/Button'
+import { Logo } from '@/shared/components/Logo'
+import { useProxyAuth } from '@/feature/auth/hooks/useProxyAuth'
 
 import { ACCENT, CREAM, CREAM_45, CREAM_75 } from '@/common/theme/colors'
 

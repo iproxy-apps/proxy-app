@@ -2,7 +2,7 @@ import { StripeProvider } from '@stripe/stripe-react-native'
 import { router, Stack } from 'expo-router'
 import { useEffect } from 'react'
 
-import { useProxyAuth } from '@/hooks/useProxyAuth'
+import { useProxyAuth } from '@/feature/auth/hooks/useProxyAuth'
 
 const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY
 

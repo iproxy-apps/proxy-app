@@ -1,7 +1,7 @@
 import { router, Stack } from 'expo-router'
 import { useEffect } from 'react'
 
-import { useProxyAuth } from '../../src/hooks/useProxyAuth'
+import { useProxyAuth } from '@/feature/auth/hooks/useProxyAuth'
 
 export default function AuthLayout() {
   const { hydrated, isAuthenticated } = useProxyAuth()

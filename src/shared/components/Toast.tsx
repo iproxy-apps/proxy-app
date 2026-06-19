@@ -13,7 +13,7 @@ import {
   SUCCESS,
   SUCCESS_TINT,
 } from '@/common/theme/colors'
-import { useToastStore, type ToastVariant } from '../store/toast-store'
+import { useToastStore, type ToastVariant } from '@/store/toast-store'
 
 const TOAST_DURATION_MS = 2800
 const ENTER_DURATION_MS = 220

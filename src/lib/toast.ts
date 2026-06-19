@@ -1,4 +1,4 @@
-import { useToastStore } from '../store/toast-store'
+import { useToastStore } from '@/store/toast-store'
 
 /**
  * Imperative API for the global toast banner. Non-blocking notifications that

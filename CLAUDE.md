@@ -102,11 +102,66 @@ Reference: [app/index.tsx](./app/index.tsx), [app/(auth)/choose-profile.tsx](./a
 - **Styling**: prefer NativeWind `className` over `StyleSheet`. Use design tokens from `tailwind.config.js`; avoid raw hex values in components.
 - **Copy**: all user-facing text in **Portuguese (Brasil)**.
 - **Money formatting**: `R$ 1.234,56` (BRL, Brazilian locale).
-- **File layout** (to evolve):
-  - `app/` — routes (Expo Router, file-based)
-  - `src/components/` — reusable components
-  - `src/lib/` — helpers (api client, formatters)
-  - `src/types/` — shared types
+## Architecture
+
+Layered structure mirroring our other projects (flex-v3-frontend, premium-frontend). Each layer has a single responsibility — don't mix:
+
+```
+app/                        # Expo Router routes ONLY — page-level glue + state.
+                            # Any non-trivial component goes to src/feature/<domain>/components/.
+src/
+├── apis/                   # Backend domain layer: routes + entity types.
+│   ├── api-client.ts       # axios instance + interceptors + extractErrorMessage
+│   ├── apis.ts             # central export — `apis.auth.session(...)`, `apis.cards.fetch()`
+│   ├── auth/
+│   │   ├── auth-apis.ts        # route functions
+│   │   └── auth-api-types.ts   # T-prefixed entity + payload types
+│   └── cards/
+│       ├── cards-apis.ts
+│       └── cards-api-types.ts
+│
+├── store/                  # Zustand stores — one folder per domain.
+│   ├── auth-store/
+│   ├── card-store/
+│   ├── modal-store/
+│   └── toast-store/        # each has `<name>-store.ts` + `index.ts` re-export
+│
+├── feature/                # Feature modules — self-contained vertical slices.
+│   ├── auth/hooks/         # useProxyAuth
+│   ├── cards/components/   # CardPreview, CardSkeleton, EmptyState, AddCardSheet
+│   ├── cards/utils/        # brand-display
+│   └── profile/components/ # IdentityCard, MenuList (MenuRow + MenuListDivider)
+│
+├── shared/                 # Cross-feature UI primitives.
+│   ├── components/         # Button, Logo, ScreenHeader, AppModal, Toast, TabPlaceholder
+│   ├── components/form/    # FormInput, FormCheckbox, FormToggle, OtpInput
+│   └── providers/          # SessionProvider
+│
+├── common/                 # App-wide constants + utils.
+│   ├── theme/colors.ts     # ONE source of truth for color tokens
+│   └── utils/              # masks.ts (phone/document masks)
+│
+└── lib/                    # Internal infra (small reusable wrappers).
+    ├── modal.ts            # `modal.error()`, `modal.confirm()`, ...
+    ├── toast.ts            # `toast.success()`, ...
+    └── secure-store.ts     # expo-secure-store wrapper
+```
+
+**Layering rules**:
+- `apis/` → owns all backend entity types. Stores and features **import** from here; never duplicate.
+- `store/` → can import from `apis/` and `lib/`. Stores expose state + actions.
+- `feature/<domain>/` → imports from `apis/`, `store/`, `shared/`, `common/`, `lib/`. Owns domain-specific UI + hooks. Never imported by `shared/` or `common/`.
+- `shared/` → only imports from `common/`, `lib/`. No domain coupling.
+- `common/` → leaf utilities. No imports from other layers.
+- `lib/` → leaf infra. Only imports from other `lib/` and `common/`.
+- `app/` (routes) → glue layer. Imports from anywhere; ideally thin (state + handlers + JSX delegating to `feature/*/components/`).
+
+**Conventions**:
+- **Path aliases**: `@/*` resolves to `src/*`. Always use `@/feature/cards/components/CardPreview` instead of `../../../src/feature/...`. Configured in `tsconfig.json` (TS) + `babel.config.js` via `babel-plugin-module-resolver` (runtime).
+- **Type naming**: prefix backend entity types and payloads with `T` (e.g., `TCard`, `TSessionPayload`, `TCreateAccountPayload`). React component types and local interfaces (e.g., `MenuRowProps`, `CardState`) stay un-prefixed.
+- **Type imports**: always `import type { ... }` for types (not `import { ... }`).
+- **Files**: kebab-case for non-component files (`card-store.ts`, `brand-display.ts`); PascalCase for components (`CardPreview.tsx`, `MenuList.tsx`).
+- **Color tokens**: import from `@/common/theme/colors`. Never declare local `const GRAPHITE = ...` blocks. Gradient stops unique to one component can stay inline.
 
 ## Prototype reference
 

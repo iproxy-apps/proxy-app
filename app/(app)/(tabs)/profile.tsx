@@ -1,44 +1,22 @@
 import { router } from 'expo-router'
-import { ChevronRight } from 'lucide-react-native'
 import { useEffect } from 'react'
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { Button } from '../../../src/components/Button'
-import { useProxyAuth } from '../../../src/hooks/useProxyAuth'
-import { modal } from '../../../src/lib/modal'
-import { useCardStore } from '../../../src/store/card-store'
-
+import { BG, BORDER, GRAPHITE, SUBTLE } from '@/common/theme/colors'
+import { useProxyAuth } from '@/feature/auth/hooks/useProxyAuth'
+import { IdentityCard } from '@/feature/profile/components/IdentityCard'
 import {
-  ACCENT,
-  ACCENT_BORDER,
-  ACCENT_TINT_STRONG,
-  BG,
-  BORDER,
-  GRAPHITE,
-  MUTED,
-  SUBTLE,
-} from '@/common/theme/colors'
-
-const initialsOf = (name?: string | null) => {
-  if (!name) return '?'
-  const parts = name.trim().split(/\s+/)
-  const first = parts[0]?.[0] ?? ''
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : ''
-  return (first + last).toUpperCase() || '?'
-}
+  MenuListDivider,
+  MenuRow,
+} from '@/feature/profile/components/MenuList'
+import { modal } from '@/lib/modal'
+import { Button } from '@/shared/components/Button'
+import { useCardStore } from '@/store/card-store'
 
 export default function Profile() {
   const { session, signOut } = useProxyAuth()
   const isClient = session?.userType === 'CLIENT'
-  const roleLabel = isClient ? 'Cliente' : 'Proxy'
 
   const card = useCardStore((s) => s.card)
   const cardLoading = useCardStore((s) => s.loading)
@@ -89,91 +67,8 @@ export default function Profile() {
           Perfil
         </Text>
 
-        {/* Identity card */}
-        <View
-          style={{
-            marginTop: 20,
-            padding: 16,
-            borderRadius: 16,
-            backgroundColor: 'white',
-            borderWidth: 1,
-            borderColor: BORDER,
-            flexDirection: 'row',
-            alignItems: 'center',
-          }}
-        >
-          <View
-            style={{
-              width: 52,
-              height: 52,
-              borderRadius: 26,
-              backgroundColor: GRAPHITE,
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: 14,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 17,
-                fontWeight: '700',
-                color: 'white',
-                letterSpacing: 0.5,
-              }}
-            >
-              {initialsOf(session?.name)}
-            </Text>
-          </View>
+        <IdentityCard session={session} />
 
-          <View style={{ flex: 1 }}>
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: '700',
-                color: GRAPHITE,
-                letterSpacing: -0.2,
-              }}
-              numberOfLines={1}
-            >
-              {session?.name ?? 'Sua conta'}
-            </Text>
-            <Text
-              style={{
-                marginTop: 2,
-                fontSize: 13,
-                color: MUTED,
-              }}
-              numberOfLines={1}
-            >
-              {session?.email ?? ''}
-            </Text>
-          </View>
-
-          <View
-            style={{
-              paddingHorizontal: 10,
-              paddingVertical: 5,
-              borderRadius: 999,
-              backgroundColor: ACCENT_TINT_STRONG,
-              borderWidth: 1,
-              borderColor: ACCENT_BORDER,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 11,
-                fontWeight: '700',
-                color: ACCENT,
-                letterSpacing: 0.4,
-                textTransform: 'uppercase',
-              }}
-            >
-              {roleLabel}
-            </Text>
-          </View>
-        </View>
-
-        {/* Section label */}
         <Text
           style={{
             marginTop: 28,
@@ -189,7 +84,6 @@ export default function Profile() {
           Conta
         </Text>
 
-        {/* Menu card */}
         <View
           style={{
             backgroundColor: 'white',
@@ -202,7 +96,7 @@ export default function Profile() {
           <MenuRow label="Editar dados" onPress={openEditAccount} />
           {isClient ? (
             <>
-              <Divider />
+              <MenuListDivider />
               <MenuRow
                 label="Cartão"
                 hint={card ? `•••• ${card.last4}` : 'Adicionar'}
@@ -224,76 +118,3 @@ export default function Profile() {
     </SafeAreaView>
   )
 }
-
-// -----------------------------------------------------------------------------
-// Menu primitives
-// -----------------------------------------------------------------------------
-
-function Divider() {
-  return (
-    <View
-      style={{
-        height: 1,
-        backgroundColor: BORDER,
-        marginLeft: 18,
-      }}
-    />
-  )
-}
-
-type MenuRowProps = {
-  label: string
-  hint?: string
-  loading?: boolean
-  onPress: () => void
-}
-
-function MenuRow({ label, hint, loading, onPress }: MenuRowProps) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.7}
-      accessibilityRole="button"
-    >
-      <View style={menuStyles.row}>
-        <Text style={menuStyles.label} numberOfLines={1}>
-          {label}
-        </Text>
-
-        {loading ? (
-          <ActivityIndicator
-            size="small"
-            color={MUTED}
-            style={{ marginRight: 8 }}
-          />
-        ) : hint ? (
-          <Text style={menuStyles.hint}>{hint}</Text>
-        ) : null}
-
-        <ChevronRight size={18} color={SUBTLE} />
-      </View>
-    </TouchableOpacity>
-  )
-}
-
-const menuStyles = StyleSheet.create({
-  row: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-  },
-  label: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: GRAPHITE,
-  },
-  hint: {
-    fontSize: 13,
-    color: MUTED,
-    marginRight: 8,
-    fontVariant: ['tabular-nums'],
-  },
-})

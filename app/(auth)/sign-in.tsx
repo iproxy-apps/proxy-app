@@ -13,11 +13,11 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { Button } from '../../src/components/Button'
-import { FormInput } from '../../src/components/form/FormInput'
-import { Logo } from '../../src/components/Logo'
-import { ScreenHeader } from '../../src/components/ScreenHeader'
-import { useProxyAuth } from '../../src/hooks/useProxyAuth'
+import { Button } from '@/shared/components/Button'
+import { FormInput } from '@/shared/components/form/FormInput'
+import { Logo } from '@/shared/components/Logo'
+import { ScreenHeader } from '@/shared/components/ScreenHeader'
+import { useProxyAuth } from '@/feature/auth/hooks/useProxyAuth'
 import { extractErrorMessage } from '@/apis/api-client'
 import { modal } from '../../src/lib/modal'
 

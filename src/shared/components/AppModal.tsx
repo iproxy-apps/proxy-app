@@ -12,7 +12,7 @@ import {
   SUCCESS,
   SUCCESS_TINT,
 } from '@/common/theme/colors'
-import { useModalStore, type ModalVariant } from '../store/modal-store'
+import { useModalStore, type ModalVariant } from '@/store/modal-store'
 import { Button } from './Button'
 
 type VariantConfig = {

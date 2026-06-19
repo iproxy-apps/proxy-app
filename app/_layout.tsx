@@ -2,9 +2,9 @@ import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
-import { AppModal } from '../src/components/AppModal'
-import { Toast } from '../src/components/Toast'
-import { SessionProvider } from '../src/providers/SessionProvider'
+import { AppModal } from '@/shared/components/AppModal'
+import { Toast } from '@/shared/components/Toast'
+import { SessionProvider } from '@/shared/providers/SessionProvider'
 
 import '../global.css'
 
