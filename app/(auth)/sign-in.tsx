@@ -17,8 +17,8 @@ import { Button } from '@/shared/components/Button'
 import { FormInput } from '@/shared/components/form/FormInput'
 import { Logo } from '@/shared/components/Logo'
 import { ScreenHeader } from '@/shared/components/ScreenHeader'
-import { useProxyAuth } from '@/feature/auth/hooks/useProxyAuth'
 import { extractErrorMessage } from '@/apis/api-client'
+import { useSignInMutation } from '@/apis/auth/auth-hooks'
 import { modal } from '../../src/lib/modal'
 
 import { BG, GRAPHITE, MUTED } from '@/common/theme/colors'
@@ -29,8 +29,7 @@ type SignInFormData = {
 }
 
 export default function SignIn() {
-  const { signIn } = useProxyAuth()
-  const [submitting, setSubmitting] = useState(false)
+  const signIn = useSignInMutation()
   const [showPassword, setShowPassword] = useState(false)
 
   const passwordRef = useRef<TextInput>(null)
@@ -43,16 +42,13 @@ export default function SignIn() {
   const { isValid } = form.formState
 
   const onSubmit = form.handleSubmit(async (data) => {
-    setSubmitting(true)
     try {
-      await signIn({
+      await signIn.mutateAsync({
         email: data.email.trim().toLowerCase(),
         password: data.password,
       })
     } catch (e) {
       modal.error(extractErrorMessage(e))
-    } finally {
-      setSubmitting(false)
     }
   })
 
@@ -162,7 +158,7 @@ export default function SignIn() {
               variant="primary"
               size="xl"
               fullWidth
-              loading={submitting}
+              loading={signIn.isPending}
               disabled={!isValid}
               onPress={onSubmit}
             >

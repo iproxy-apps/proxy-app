@@ -1,8 +1,8 @@
 import { router } from 'expo-router'
-import { useEffect } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { useCardQuery } from '@/apis/cards/cards-hooks'
 import { BG, BORDER, GRAPHITE, SUBTLE } from '@/common/theme/colors'
 import { useProxyAuth } from '@/feature/auth/hooks/useProxyAuth'
 import { IdentityCard } from '@/feature/profile/components/IdentityCard'
@@ -12,22 +12,14 @@ import {
 } from '@/feature/profile/components/MenuList'
 import { modal } from '@/lib/modal'
 import { Button } from '@/shared/components/Button'
-import { useCardStore } from '@/store/card-store'
 
 export default function Profile() {
   const { session, signOut } = useProxyAuth()
   const isClient = session?.userType === 'CLIENT'
 
-  const card = useCardStore((s) => s.card)
-  const cardLoading = useCardStore((s) => s.loading)
-  const cardLoaded = useCardStore((s) => s.loaded)
-  const loadCard = useCardStore((s) => s.load)
-
-  // Triggers a fetch on first mount once the session is known to be a CLIENT.
-  // The store guarantees it won't refire if already loaded / in-flight.
-  useEffect(() => {
-    if (isClient) loadCard()
-  }, [isClient, loadCard])
+  const { data: card, isPending: cardPending } = useCardQuery({
+    enabled: isClient,
+  })
 
   const handleSignOut = () => {
     modal.confirm({
@@ -100,7 +92,7 @@ export default function Profile() {
               <MenuRow
                 label="Cartão"
                 hint={card ? `•••• ${card.last4}` : 'Adicionar'}
-                loading={cardLoading || !cardLoaded}
+                loading={cardPending}
                 onPress={() => router.push('/cards')}
               />
             </>

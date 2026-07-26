@@ -15,7 +15,7 @@ import {
 } from 'react-native'
 
 import { extractErrorMessage } from '@/apis/api-client'
-import { apis } from '@/apis/apis'
+import { useCreateCardMutation } from '@/apis/cards/cards-hooks'
 import {
   BG,
   BORDER,
@@ -35,11 +35,15 @@ type Props = {
 
 export function AddCardSheet({ visible, onClose, onSuccess }: Props) {
   const { createPaymentMethod } = useStripe()
+  const createCard = useCreateCardMutation()
   const [complete, setComplete] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
   const [mounted, setMounted] = useState(visible)
   const [cardFieldKey, setCardFieldKey] = useState(0)
   const [sheetError, setSheetError] = useState<string | null>(null)
+  // Tracks the whole submit lifecycle (Stripe tokenization + backend POST)
+  // so the button shows loading the moment the user taps — createCard.isPending
+  // alone would only cover the second half and leave a visible ~500ms gap.
+  const [submitting, setSubmitting] = useState(false)
 
   const opacity = useRef(new Animated.Value(0)).current
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current
@@ -99,7 +103,7 @@ export function AddCardSheet({ visible, onClose, onSuccess }: Props) {
         setSheetError(error?.message ?? 'Cartão inválido. Confira os dados.')
         return
       }
-      await apis.cards.create({ token: paymentMethod.id })
+      await createCard.mutateAsync({ token: paymentMethod.id })
       onSuccess()
     } catch (e) {
       setSheetError(extractErrorMessage(e))

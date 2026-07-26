@@ -18,8 +18,8 @@ import { FormCheckbox } from '@/shared/components/form/FormCheckbox'
 import { FormInput } from '@/shared/components/form/FormInput'
 import { FormToggle } from '@/shared/components/form/FormToggle'
 import { ScreenHeader } from '@/shared/components/ScreenHeader'
-import { useProxyAuth } from '@/feature/auth/hooks/useProxyAuth'
 import { extractErrorMessage } from '@/apis/api-client'
+import { useCreateAccountMutation } from '@/apis/auth/auth-hooks'
 import { maskDocument, maskPhone, unmask } from '@/common/utils/masks'
 import { modal } from '../../src/lib/modal'
 import type { TUserType } from '@/apis/auth/auth-api-types'
@@ -43,9 +43,8 @@ export default function SignUp() {
   const userType: TUserType = userTypeParam === 'PROXY' ? 'PROXY' : 'CLIENT'
   const isProxy = userType === 'PROXY'
 
-  const { signUp } = useProxyAuth()
+  const signUp = useCreateAccountMutation()
   const [photoUploaded, setPhotoUploaded] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
   const emailRef = useRef<TextInput>(null)
@@ -80,9 +79,8 @@ export default function SignUp() {
       return
     }
 
-    setSubmitting(true)
     try {
-      await signUp({
+      await signUp.mutateAsync({
         name: data.name.trim(),
         email: data.email.trim().toLowerCase(),
         phoneNumber: unmask(data.phoneNumber),
@@ -93,8 +91,6 @@ export default function SignUp() {
       })
     } catch (e) {
       modal.error(extractErrorMessage(e))
-    } finally {
-      setSubmitting(false)
     }
   })
 
@@ -300,7 +296,7 @@ export default function SignUp() {
               variant="primary"
               size="xl"
               fullWidth
-              loading={submitting}
+              loading={signUp.isPending}
               disabled={!canSubmit}
               onPress={onSubmit}
             >

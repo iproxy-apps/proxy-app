@@ -24,7 +24,11 @@ import { FormInput } from '@/shared/components/form/FormInput'
 import { OtpInput } from '@/shared/components/form/OtpInput'
 import { ScreenHeader } from '@/shared/components/ScreenHeader'
 import { extractErrorMessage } from '@/apis/api-client'
-import { apis } from '@/apis/apis'
+import {
+  useForgotPasswordMutation,
+  useResetPasswordMutation,
+  useVerifyResetCodeMutation,
+} from '@/apis/auth/auth-hooks'
 import { modal } from '../../src/lib/modal'
 
 import {
@@ -206,7 +210,7 @@ type EmailStepProps = {
 type EmailFormData = { email: string }
 
 function EmailStep({ defaultEmail, onContinue }: EmailStepProps) {
-  const [submitting, setSubmitting] = useState(false)
+  const forgotPassword = useForgotPasswordMutation()
   const form = useForm<EmailFormData>({
     mode: 'all',
     defaultValues: { email: defaultEmail },
@@ -215,14 +219,11 @@ function EmailStep({ defaultEmail, onContinue }: EmailStepProps) {
 
   const onSubmit = form.handleSubmit(async (data) => {
     const email = data.email.trim().toLowerCase()
-    setSubmitting(true)
     try {
-      await apis.auth.forgotPassword({ email })
+      await forgotPassword.mutateAsync({ email })
       onContinue(email)
     } catch (e) {
       modal.error(extractErrorMessage(e))
-    } finally {
-      setSubmitting(false)
     }
   })
 
@@ -262,7 +263,7 @@ function EmailStep({ defaultEmail, onContinue }: EmailStepProps) {
           variant="primary"
           size="xl"
           fullWidth
-          loading={submitting}
+          loading={forgotPassword.isPending}
           disabled={!isValid}
           onPress={onSubmit}
         >
@@ -283,34 +284,28 @@ type CodeStepProps = {
 }
 
 function CodeStep({ email, onContinue }: CodeStepProps) {
+  const verifyCode = useVerifyResetCodeMutation()
+  const resendCode = useForgotPasswordMutation()
   const [code, setCode] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [resending, setResending] = useState(false)
 
   const isValid = code.length === 6 && /^\d{6}$/.test(code)
 
   const onSubmit = async () => {
     if (!isValid) return
-    setSubmitting(true)
     try {
-      await apis.auth.verifyResetCode({ email, code })
+      await verifyCode.mutateAsync({ email, code })
       onContinue(code)
     } catch (e) {
       modal.error(extractErrorMessage(e))
-    } finally {
-      setSubmitting(false)
     }
   }
 
   const onResend = async () => {
-    setResending(true)
     try {
-      await apis.auth.forgotPassword({ email })
+      await resendCode.mutateAsync({ email })
       modal.success('Código reenviado. Confira seu email.')
     } catch (e) {
       modal.error(extractErrorMessage(e))
-    } finally {
-      setResending(false)
     }
   }
 
@@ -353,10 +348,10 @@ function CodeStep({ email, onContinue }: CodeStepProps) {
           <Text style={{ fontSize: 13, color: MUTED }}>Não recebeu?</Text>
           <Pressable
             onPress={onResend}
-            disabled={resending}
+            disabled={resendCode.isPending}
             hitSlop={6}
             style={({ pressed }) => ({
-              opacity: pressed || resending ? 0.5 : 1,
+              opacity: pressed || resendCode.isPending ? 0.5 : 1,
             })}
           >
             <Text style={{ fontSize: 13, fontWeight: '700', color: GRAPHITE }}>
@@ -371,7 +366,7 @@ function CodeStep({ email, onContinue }: CodeStepProps) {
           variant="primary"
           size="xl"
           fullWidth
-          loading={submitting}
+          loading={verifyCode.isPending}
           disabled={!isValid}
           onPress={onSubmit}
         >
@@ -398,7 +393,7 @@ type PasswordFormData = {
 }
 
 function PasswordStep({ email, code, onSuccess }: PasswordStepProps) {
-  const [submitting, setSubmitting] = useState(false)
+  const resetPassword = useResetPasswordMutation()
   const [show, setShow] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
@@ -415,9 +410,8 @@ function PasswordStep({ email, code, onSuccess }: PasswordStepProps) {
   })
 
   const onSubmit = form.handleSubmit(async (data) => {
-    setSubmitting(true)
     try {
-      await apis.auth.resetPassword({
+      await resetPassword.mutateAsync({
         email,
         code,
         newPassword: data.newPassword,
@@ -425,8 +419,6 @@ function PasswordStep({ email, code, onSuccess }: PasswordStepProps) {
       onSuccess()
     } catch (e) {
       modal.error(extractErrorMessage(e))
-    } finally {
-      setSubmitting(false)
     }
   })
 
@@ -521,7 +513,7 @@ function PasswordStep({ email, code, onSuccess }: PasswordStepProps) {
           variant="primary"
           size="xl"
           fullWidth
-          loading={submitting}
+          loading={resetPassword.isPending}
           disabled={!isValid}
           onPress={onSubmit}
         >

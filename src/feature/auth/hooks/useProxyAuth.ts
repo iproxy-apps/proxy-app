@@ -1,56 +1,33 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
 
-import { apis } from '@/apis/apis'
-import type {
-  TCreateAccountPayload,
-  TSignInPayload,
-} from '@/apis/auth/auth-api-types'
 import { useAuthStore } from '@/store/auth-store'
-import { useCardStore } from '@/store/card-store'
 
 /**
- * Single source of truth for authentication actions.
- * Screens stay "dumb" and just call these methods.
+ * Reads current auth state and exposes signOut. Sign-in and sign-up are done
+ * via the auth mutation hooks (useSignInMutation / useCreateAccountMutation)
+ * so screens get isPending, error and retry for free.
  *
  * Navigation is handled declaratively via route guards in (auth)/_layout and
- * (app)/_layout. These methods only mutate auth state — they do NOT call
- * router.replace, to avoid double-navigation loops with the guards.
+ * (app)/_layout — we don't call router.replace from here to avoid loops.
  */
 export function useProxyAuth() {
+  const queryClient = useQueryClient()
   const session = useAuthStore((s) => s.session)
   const token = useAuthStore((s) => s.token)
   const hydrated = useAuthStore((s) => s.hydrated)
-  const setSession = useAuthStore((s) => s.setSession)
   const clearSession = useAuthStore((s) => s.clearSession)
-
-  const signUp = useCallback(
-    async (payload: TCreateAccountPayload) => {
-      const { session: token } = await apis.auth.create(payload)
-      await setSession(token)
-    },
-    [setSession],
-  )
-
-  const signIn = useCallback(
-    async (payload: TSignInPayload) => {
-      const { session: token } = await apis.auth.session(payload)
-      await setSession(token)
-    },
-    [setSession],
-  )
 
   const signOut = useCallback(async () => {
     await clearSession()
-    useCardStore.getState().reset()
-  }, [clearSession])
+    queryClient.clear()
+  }, [clearSession, queryClient])
 
   return {
     session,
     token,
     hydrated,
     isAuthenticated: !!token,
-    signUp,
-    signIn,
     signOut,
   }
 }
