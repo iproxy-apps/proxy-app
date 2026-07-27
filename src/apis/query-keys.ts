@@ -6,4 +6,5 @@
  */
 export const queryKeys = {
   card: ['card'] as const,
+  tasksActive: ['tasks', 'active'] as const,
 }

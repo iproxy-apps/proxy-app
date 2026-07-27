@@ -37,6 +37,14 @@
         {
           "merchantIdentifier": "merchant.com.anonymous.proxyapp"
         }
+      ],
+      "@react-native-community/datetimepicker",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Usamos sua localização pra preencher o endereço da tarefa automaticamente.",
+          "locationWhenInUsePermission": "Usamos sua localização pra preencher o endereço da tarefa automaticamente."
+        }
       ]
     ],
     "experiments": {

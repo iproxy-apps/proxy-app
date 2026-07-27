@@ -9,21 +9,14 @@ import {
   GRAPHITE,
   MUTED,
 } from '@/common/theme/colors'
-
-const initialsOf = (name?: string | null) => {
-  if (!name) return '?'
-  const parts = name.trim().split(/\s+/)
-  const first = parts[0]?.[0] ?? ''
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : ''
-  return (first + last).toUpperCase() || '?'
-}
+import { Avatar } from '@/shared/components/Avatar'
 
 type Props = {
   session: TSessionPayload | null
 }
 
 /**
- * Compact identity header — graphite avatar with initials, name + email, and
+ * Compact identity header — avatar with initials, name + email, and
  * a mustard role chip on the right (CLIENTE / PROXY).
  */
 export function IdentityCard({ session }: Props) {
@@ -43,27 +36,8 @@ export function IdentityCard({ session }: Props) {
         alignItems: 'center',
       }}
     >
-      <View
-        style={{
-          width: 52,
-          height: 52,
-          borderRadius: 26,
-          backgroundColor: GRAPHITE,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginRight: 14,
-        }}
-      >
-        <Text
-          style={{
-            fontSize: 17,
-            fontWeight: '700',
-            color: 'white',
-            letterSpacing: 0.5,
-          }}
-        >
-          {initialsOf(session?.name)}
-        </Text>
+      <View style={{ marginRight: 14 }}>
+        <Avatar name={session?.name} size={52} variant="light" />
       </View>
 
       <View style={{ flex: 1 }}>

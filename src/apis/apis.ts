@@ -1,5 +1,6 @@
 import { authApis } from './auth/auth-apis'
 import { cardsApis } from './cards/cards-apis'
+import { tasksApis } from './tasks/tasks-apis'
 
 /**
  * Typed route map. Each entry corresponds to one backend module.
@@ -13,4 +14,5 @@ import { cardsApis } from './cards/cards-apis'
 export const apis = {
   auth: authApis,
   cards: cardsApis,
+  tasks: tasksApis,
 }
