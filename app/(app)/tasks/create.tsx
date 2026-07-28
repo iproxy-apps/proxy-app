@@ -4,13 +4,17 @@ import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { BG, BORDER, GRAPHITE, MUTED } from '@/common/theme/colors'
-import { Button } from '@/shared/components/Button'
+import {
+  CreateTaskStep1,
+  type Step1FormData,
+} from '@/feature/tasks/components/CreateTaskStep1'
 import { ScreenHeader } from '@/shared/components/ScreenHeader'
 
 type Step = 1 | 2
 
 export default function CreateTask() {
   const [step, setStep] = useState<Step>(1)
+  const [step1Data, setStep1Data] = useState<Step1FormData | null>(null)
 
   const handleBack = () => {
     if (step === 1) {
@@ -18,6 +22,11 @@ export default function CreateTask() {
     } else {
       setStep(1)
     }
+  }
+
+  const handleStep1Submit = (data: Step1FormData) => {
+    setStep1Data(data)
+    setStep(2)
   }
 
   return (
@@ -41,7 +50,10 @@ export default function CreateTask() {
           <ProgressBar current={step} total={2} />
 
           {step === 1 && (
-            <Step1Placeholder onContinue={() => setStep(2)} />
+            <CreateTaskStep1
+              defaultValues={step1Data ?? undefined}
+              onSubmit={handleStep1Submit}
+            />
           )}
           {step === 2 && <Step2Placeholder />}
         </ScrollView>
@@ -71,42 +83,6 @@ function ProgressBar({ current, total }: { current: number; total: number }) {
           }}
         />
       ))}
-    </View>
-  )
-}
-
-function Step1Placeholder({ onContinue }: { onContinue: () => void }) {
-  return (
-    <View>
-      <Text
-        style={{
-          fontSize: 26,
-          fontWeight: '700',
-          color: GRAPHITE,
-          letterSpacing: -0.4,
-          lineHeight: 32,
-        }}
-      >
-        Detalhes da tarefa
-      </Text>
-      <Text
-        style={{
-          marginTop: 6,
-          fontSize: 14,
-          color: MUTED,
-          lineHeight: 20,
-        }}
-      >
-        Passo 1 de 2 — em breve os campos do formulário aparecerão aqui.
-      </Text>
-
-      <View style={{ flex: 1 }} />
-
-      <View style={{ marginTop: 24 }}>
-        <Button variant="primary" size="xl" fullWidth onPress={onContinue}>
-          Continuar
-        </Button>
-      </View>
     </View>
   )
 }

@@ -69,7 +69,7 @@ export const FormInput = forwardRef<TextInput, Props>(function FormInput(
             <View
               style={{
                 flexDirection: 'row',
-                alignItems: 'center',
+                alignItems: inputProps.multiline ? 'flex-start' : 'center',
                 borderWidth: 1,
                 borderColor,
                 borderRadius: 12,
@@ -90,13 +90,20 @@ export const FormInput = forwardRef<TextInput, Props>(function FormInput(
                 }}
                 placeholder={placeholder}
                 placeholderTextColor={SUBTLE}
-                style={{
-                  flex: 1,
-                  paddingHorizontal: leftSlot ? 10 : 14,
-                  paddingVertical: 12,
-                  fontSize: 15,
-                  color: GRAPHITE,
-                }}
+                style={[
+                  {
+                    flex: 1,
+                    paddingHorizontal: leftSlot ? 10 : 14,
+                    paddingVertical: 12,
+                    fontSize: 15,
+                    color: GRAPHITE,
+                  },
+                  inputProps.multiline && {
+                    minHeight: 96,
+                    paddingTop: 12,
+                    textAlignVertical: 'top' as const,
+                  },
+                ]}
                 {...inputProps}
               />
               {rightSlot}
