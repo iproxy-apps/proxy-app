@@ -1,7 +1,13 @@
 import { MapPin } from 'lucide-react-native'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { FormProvider, useForm } from 'react-hook-form'
-import { Pressable, Text, TextInput, View } from 'react-native'
+import {
+  ActivityIndicator,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
 
 import {
   ACCENT,
@@ -16,7 +22,7 @@ import {
   maskState,
   parseBRLToNumber,
 } from '@/common/utils/masks'
-import { modal } from '@/lib/modal'
+import { useLocationCapture } from '@/feature/tasks/hooks/useLocationCapture'
 import { Button } from '@/shared/components/Button'
 import { FormInput } from '@/shared/components/form/FormInput'
 
@@ -31,12 +37,22 @@ export type Step1FormData = {
   offeredPrice: string
 }
 
-type Props = {
-  defaultValues?: Partial<Step1FormData>
-  onSubmit: (data: Step1FormData) => void
+export type Step1Submit = Step1FormData & {
+  locationLat: number
+  locationLng: number
 }
 
-export function CreateTaskStep1({ defaultValues, onSubmit }: Props) {
+type Props = {
+  defaultValues?: Partial<Step1FormData>
+  initialCoords?: { lat: number; lng: number } | null
+  onSubmit: (data: Step1Submit) => void
+}
+
+export function CreateTaskStep1({
+  defaultValues,
+  initialCoords,
+  onSubmit,
+}: Props) {
   const form = useForm<Step1FormData>({
     mode: 'all',
     defaultValues: {
@@ -52,6 +68,11 @@ export function CreateTaskStep1({ defaultValues, onSubmit }: Props) {
   })
   const { isValid } = form.formState
 
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    initialCoords ?? null,
+  )
+  const location = useLocationCapture()
+
   const descriptionRef = useRef<TextInput>(null)
   const streetRef = useRef<TextInput>(null)
   const cityRef = useRef<TextInput>(null)
@@ -59,15 +80,18 @@ export function CreateTaskStep1({ defaultValues, onSubmit }: Props) {
   const zipCodeRef = useRef<TextInput>(null)
   const priceRef = useRef<TextInput>(null)
 
-  const handleUseLocation = () => {
-    // TODO(milestone 3.c): swap for useLocationCapture
-    modal.info(
-      'Em breve esse botão vai preencher o endereço automaticamente usando sua localização.',
-    )
+  const handleUseLocation = async () => {
+    const result = await location.capture()
+    if (!result) return
+    form.setValue('street', result.street, { shouldValidate: true })
+    form.setValue('city', result.city, { shouldValidate: true })
+    form.setValue('state', result.state, { shouldValidate: true })
+    form.setValue('zipCode', result.zipCode, { shouldValidate: true })
+    setCoords({ lat: result.lat, lng: result.lng })
   }
 
-  const submit = form.handleSubmit((data) => {
-    onSubmit({
+  const submit = form.handleSubmit(async (data) => {
+    const trimmed: Step1FormData = {
       title: data.title.trim(),
       description: data.description.trim(),
       street: data.street.trim(),
@@ -75,6 +99,26 @@ export function CreateTaskStep1({ defaultValues, onSubmit }: Props) {
       state: data.state.trim().toUpperCase(),
       zipCode: data.zipCode.trim(),
       offeredPrice: data.offeredPrice,
+    }
+
+    // If the user already pressed the location button, reuse those coords.
+    // Otherwise resolve at submit time: geocode the typed address first
+    // (A2), fall back to the device's current position (A1).
+    let finalCoords = coords
+    if (!finalCoords) {
+      finalCoords = await location.resolveCoords({
+        street: trimmed.street,
+        city: trimmed.city,
+        state: trimmed.state,
+        zipCode: trimmed.zipCode,
+      })
+    }
+    if (!finalCoords) return // hook already showed the error
+
+    onSubmit({
+      ...trimmed,
+      locationLat: finalCoords.lat,
+      locationLng: finalCoords.lng,
     })
   })
 
@@ -150,6 +194,7 @@ export function CreateTaskStep1({ defaultValues, onSubmit }: Props) {
 
           <Pressable
             onPress={handleUseLocation}
+            disabled={location.capturing}
             accessibilityRole="button"
             accessibilityLabel="Usar minha localização"
           >
@@ -164,7 +209,7 @@ export function CreateTaskStep1({ defaultValues, onSubmit }: Props) {
                   borderWidth: 1,
                   borderColor: BORDER,
                   marginBottom: 16,
-                  opacity: pressed ? 0.75 : 1,
+                  opacity: pressed || location.capturing ? 0.75 : 1,
                 }}
               >
                 <View
@@ -178,7 +223,11 @@ export function CreateTaskStep1({ defaultValues, onSubmit }: Props) {
                     marginRight: 12,
                   }}
                 >
-                  <MapPin size={16} color={ACCENT} />
+                  {location.capturing ? (
+                    <ActivityIndicator size="small" color={ACCENT} />
+                  ) : (
+                    <MapPin size={16} color={ACCENT} />
+                  )}
                 </View>
                 <Text
                   style={{
@@ -188,7 +237,9 @@ export function CreateTaskStep1({ defaultValues, onSubmit }: Props) {
                     flex: 1,
                   }}
                 >
-                  Usar minha localização
+                  {location.capturing
+                    ? 'Buscando endereço...'
+                    : 'Usar minha localização'}
                 </Text>
               </View>
             )}
@@ -296,7 +347,8 @@ export function CreateTaskStep1({ defaultValues, onSubmit }: Props) {
           variant="primary"
           size="xl"
           fullWidth
-          disabled={!isValid}
+          loading={location.resolving}
+          disabled={!isValid || location.capturing}
           onPress={submit}
         >
           Continuar

@@ -1,46 +1,34 @@
+import { useSegments } from 'expo-router'
 import { AlertCircle, CheckCircle2, Info } from 'lucide-react-native'
 import { useEffect, useRef } from 'react'
-import { Animated, Pressable, Text, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { Animated, Platform, Pressable, Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import {
-  BORDER,
+  CREAM,
   DESTRUCTIVE,
-  DESTRUCTIVE_TINT,
   GRAPHITE,
   INFO,
-  INFO_TINT,
   SUCCESS,
-  SUCCESS_TINT,
 } from '@/common/theme/colors'
 import { useToastStore, type ToastVariant } from '@/store/toast-store'
 
-const TOAST_DURATION_MS = 2800
-const ENTER_DURATION_MS = 220
-const EXIT_DURATION_MS = 200
+const TOAST_DURATION_MS = 3500
+const ENTER_DURATION_MS = 240
+const EXIT_DURATION_MS = 220
+
+// Mirrors the tabBarStyle.height in app/(app)/(tabs)/_layout.tsx.
+const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 84 : 64
 
 type VariantConfig = {
   Icon: typeof CheckCircle2
   color: string
-  tint: string
 }
 
 const variants: Record<ToastVariant, VariantConfig> = {
-  success: {
-    Icon: CheckCircle2,
-    color: SUCCESS,
-    tint: SUCCESS_TINT,
-  },
-  info: {
-    Icon: Info,
-    color: INFO,
-    tint: INFO_TINT,
-  },
-  error: {
-    Icon: AlertCircle,
-    color: DESTRUCTIVE,
-    tint: DESTRUCTIVE_TINT,
-  },
+  success: { Icon: CheckCircle2, color: SUCCESS },
+  info: { Icon: Info, color: INFO },
+  error: { Icon: AlertCircle, color: DESTRUCTIVE },
 }
 
 export function Toast() {
@@ -50,14 +38,18 @@ export function Toast() {
   const showId = useToastStore((s) => s.showId)
   const hide = useToastStore((s) => s.hide)
 
-  const translateY = useRef(new Animated.Value(-120)).current
+  const insets = useSafeAreaInsets()
+  const segments = useSegments()
+  const inTabs = (segments as string[]).includes('(tabs)')
+
+  const translateY = useRef(new Animated.Value(120)).current
   const opacity = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
     if (!open) {
       Animated.parallel([
         Animated.timing(translateY, {
-          toValue: -120,
+          toValue: 120,
           duration: EXIT_DURATION_MS,
           useNativeDriver: true,
         }),
@@ -75,7 +67,7 @@ export function Toast() {
         toValue: 0,
         useNativeDriver: true,
         bounciness: 6,
-        speed: 16,
+        speed: 14,
       }),
       Animated.timing(opacity, {
         toValue: 1,
@@ -92,15 +84,20 @@ export function Toast() {
   const cfg = variants[variant]
   const { Icon } = cfg
 
+  // Position above the tab bar when inside the tabs stack; otherwise just above
+  // the home indicator / bottom edge.
+  const bottomOffset = inTabs
+    ? TAB_BAR_HEIGHT + insets.bottom + 8
+    : insets.bottom + 12
+
   return (
-    <SafeAreaView
+    <View
       pointerEvents="box-none"
-      edges={['top']}
       style={{
         position: 'absolute',
-        top: 0,
         left: 0,
         right: 0,
+        bottom: bottomOffset,
         zIndex: 9999,
       }}
     >
@@ -108,51 +105,51 @@ export function Toast() {
         pointerEvents={open ? 'auto' : 'none'}
         style={{
           marginHorizontal: 16,
-          marginTop: 4,
           transform: [{ translateY }],
           opacity,
+          backgroundColor: GRAPHITE,
+          borderRadius: 16,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.25,
+          shadowRadius: 16,
+          elevation: 8,
         }}
       >
         <Pressable
           onPress={hide}
           accessibilityRole="button"
-          style={({ pressed }) => ({
-            backgroundColor: 'white',
-            borderRadius: 14,
-            borderWidth: 1,
-            borderColor: BORDER,
-            paddingVertical: 12,
+          accessibilityLabel={message}
+          android_ripple={{ color: 'rgba(255,255,255,0.08)' }}
+          style={{
+            paddingVertical: 14,
             paddingHorizontal: 14,
             flexDirection: 'row',
             alignItems: 'center',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.08,
-            shadowRadius: 12,
-            elevation: 4,
-            opacity: pressed ? 0.85 : 1,
-          })}
+            borderRadius: 16,
+          }}
         >
           <View
             style={{
-              width: 30,
-              height: 30,
-              borderRadius: 10,
-              backgroundColor: cfg.tint,
+              width: 36,
+              height: 36,
+              borderRadius: 12,
+              backgroundColor: cfg.color,
               alignItems: 'center',
               justifyContent: 'center',
               marginRight: 12,
             }}
           >
-            <Icon size={16} color={cfg.color} />
+            <Icon size={18} color={CREAM} strokeWidth={2.4} />
           </View>
           <Text
             style={{
               flex: 1,
-              fontSize: 14,
+              fontSize: 15,
               fontWeight: '600',
-              color: GRAPHITE,
-              lineHeight: 19,
+              color: CREAM,
+              lineHeight: 20,
+              letterSpacing: -0.1,
             }}
             numberOfLines={2}
           >
@@ -160,6 +157,7 @@ export function Toast() {
           </Text>
         </Pressable>
       </Animated.View>
-    </SafeAreaView>
+    </View>
   )
 }
+

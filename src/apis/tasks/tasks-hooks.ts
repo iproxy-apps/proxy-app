@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { queryKeys } from '../query-keys'
 import { tasksApis } from './tasks-apis'
@@ -13,5 +13,19 @@ export function useActiveTasksQuery(options?: { enabled?: boolean }) {
     queryKey: queryKeys.tasksActive,
     queryFn: tasksApis.fetchActive,
     enabled: options?.enabled,
+  })
+}
+
+/**
+ * Publishes a new task. On success, invalidates the active-tasks list so the
+ * new task shows up on the Home Cliente without a manual refetch.
+ */
+export function useCreateTaskMutation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: tasksApis.create,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.tasksActive })
+    },
   })
 }
