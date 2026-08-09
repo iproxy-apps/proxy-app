@@ -26,6 +26,28 @@ export const ACTIVE_TASK_STATUSES: readonly TTaskStatus[] = [
 ] as const
 
 // -----------------------------------------------------------------------------
+// Payment
+// -----------------------------------------------------------------------------
+
+export type TPaymentStatus =
+  | 'pending'
+  | 'succeeded'
+  | 'failed'
+  | 'refunded'
+  | 'disputed'
+
+export interface TPayment {
+  id: string
+  taskId: string
+  amount: string
+  status: TPaymentStatus
+  paymentIntent: string
+  refundId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+// -----------------------------------------------------------------------------
 // Entities
 // -----------------------------------------------------------------------------
 
@@ -62,6 +84,15 @@ export interface TTask {
   startedAt: string | null
   owner: string
   ownerId: TTaskOwner
+}
+
+/**
+ * Task as returned by GET /tasks/:id — same as TTask plus the embedded
+ * payment record when one exists. The list endpoints (/tasks/active,
+ * /tasks/fetch) do NOT include payment.
+ */
+export type TTaskDetail = TTask & {
+  payment: TPayment | null
 }
 
 // -----------------------------------------------------------------------------

@@ -14,3 +14,21 @@ export function formatBRL(value: number | string | null | undefined): string {
   if (!Number.isFinite(n)) return bRLFormatter.format(0)
   return bRLFormatter.format(n)
 }
+
+const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
+/**
+ * Formats an ISO date string (or Date) as "10 nov, 14:32" in pt-BR.
+ * Returns empty string on invalid input.
+ */
+export function formatDateTime(value: string | Date | null | undefined): string {
+  if (!value) return ''
+  const d = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return dateTimeFormatter.format(d).replace('.', '')
+}

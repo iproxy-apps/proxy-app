@@ -23,7 +23,6 @@ import {
 import { TaskCard } from '@/feature/tasks/components/TaskCard'
 import { TaskCardSkeleton } from '@/feature/tasks/components/TaskCardSkeleton'
 import { TasksEmptyState } from '@/feature/tasks/components/TasksEmptyState'
-import { modal } from '@/lib/modal'
 import { Avatar } from '@/shared/components/Avatar'
 
 type Props = {
@@ -52,10 +51,7 @@ export function ClientHome({ session }: Props) {
   }
 
   const openTask = (task: TTask) => {
-    // TODO(milestone 5+): swap for router.push(`/tasks/${task.id}`)
-    modal.info(
-      `A tela de detalhe de "${task.title}" ainda está sendo construída.`,
-    )
+    router.push(`/tasks/${task.id}`)
   }
 
   const stats = [

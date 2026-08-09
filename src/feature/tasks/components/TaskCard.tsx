@@ -11,14 +11,18 @@ import {
   SUBTLE,
 } from '@/common/theme/colors'
 import { formatBRL } from '@/common/utils/format'
+import { formatDistance } from '@/common/utils/haversine'
 import { statusLabel } from '../utils/status-display'
 
 type Props = {
   task: TTask
   onPress: (task: TTask) => void
+  /** Distance from the device to the task, in km. Hidden when undefined. */
+  distanceKm?: number | null
 }
 
-export function TaskCard({ task, onPress }: Props) {
+export function TaskCard({ task, onPress, distanceKm }: Props) {
+  const distanceText = distanceKm != null ? formatDistance(distanceKm) : null
   return (
     <Pressable
       onPress={() => onPress(task)}
@@ -93,6 +97,19 @@ export function TaskCard({ task, onPress }: Props) {
                 >
                   {task.locationAddress}
                 </Text>
+                {distanceText ? (
+                  <Text
+                    style={{
+                      marginLeft: 6,
+                      fontSize: 12,
+                      color: MUTED,
+                      fontWeight: '600',
+                      fontVariant: ['tabular-nums'],
+                    }}
+                  >
+                    · {distanceText}
+                  </Text>
+                ) : null}
               </View>
             </View>
 
