@@ -67,3 +67,34 @@ export function useCreateTaskMutation() {
     },
   })
 }
+
+/**
+ * Cancels a task (Client action). Invalidates both the task detail and the
+ * active-tasks list so the UI reflects the new `canceled` state everywhere.
+ */
+export function useCancelTaskMutation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: tasksApis.cancel,
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: queryKeys.taskById(variables.taskId) })
+      qc.invalidateQueries({ queryKey: queryKeys.tasksActive })
+    },
+  })
+}
+
+/**
+ * Validates a completed task (Client action) — optionally with rating and
+ * comment. Backend records the rating and transfers the payment. Invalidates
+ * the detail + active list.
+ */
+export function useValidateTaskMutation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: tasksApis.validate,
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: queryKeys.taskById(variables.taskId) })
+      qc.invalidateQueries({ queryKey: queryKeys.tasksActive })
+    },
+  })
+}

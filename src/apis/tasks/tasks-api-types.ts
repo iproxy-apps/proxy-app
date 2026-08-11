@@ -118,6 +118,16 @@ export interface TCreateTaskPayload {
     | { token: string }
 }
 
+export interface TCancelTaskPayload {
+  taskId: string
+}
+
+export interface TValidateTaskPayload {
+  taskId: string
+  rating?: number
+  comment?: string
+}
+
 // -----------------------------------------------------------------------------
 // Responses
 // -----------------------------------------------------------------------------

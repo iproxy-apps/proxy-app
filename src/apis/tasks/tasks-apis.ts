@@ -1,9 +1,11 @@
 import { api } from '../api-client'
 import type {
+  TCancelTaskPayload,
   TCreateTaskPayload,
   TCreateTaskResponse,
   TTask,
   TTaskDetail,
+  TValidateTaskPayload,
 } from './tasks-api-types'
 
 export const tasksApis = {
@@ -20,4 +22,10 @@ export const tasksApis = {
 
   create: (payload: TCreateTaskPayload) =>
     api.post<TCreateTaskResponse>('/tasks/create', payload).then((r) => r.data),
+
+  cancel: (payload: TCancelTaskPayload) =>
+    api.post<void>('/tasks/cancel', payload).then((r) => r.data),
+
+  validate: (payload: TValidateTaskPayload) =>
+    api.post<void>('/tasks/validate', payload).then((r) => r.data),
 }

@@ -1,9 +1,15 @@
-import { router, useLocalSearchParams } from 'expo-router'
+import { router, Stack, useLocalSearchParams } from 'expo-router'
 import { AlertTriangle, MapPin } from 'lucide-react-native'
-import { ScrollView, Text, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { useState } from 'react'
+import { Pressable, ScrollView, Text, View } from 'react-native'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { useTaskByIdQuery } from '@/apis/tasks/tasks-hooks'
+import { extractErrorMessage } from '@/apis/api-client'
+import type { TTaskDetail } from '@/apis/tasks/tasks-api-types'
+import {
+  useCancelTaskMutation,
+  useTaskByIdQuery,
+} from '@/apis/tasks/tasks-hooks'
 import {
   ACCENT,
   ACCENT_TINT_STRONG,
@@ -14,54 +20,227 @@ import {
   SUBTLE,
 } from '@/common/theme/colors'
 import { formatBRL, formatDateTime } from '@/common/utils/format'
-import { statusLabel } from '@/feature/tasks/utils/status-display'
+import { useProxyAuth } from '@/feature/auth/hooks/useProxyAuth'
 import { TaskTimeline } from '@/feature/tasks/components/TaskTimeline'
+import { ValidateTaskSheet } from '@/feature/tasks/components/ValidateTaskSheet'
+import { canCancelTask } from '@/feature/tasks/utils/can-cancel'
+import { statusLabel } from '@/feature/tasks/utils/status-display'
+import { modal } from '@/lib/modal'
+import { toast } from '@/lib/toast'
 import { Button } from '@/shared/components/Button'
 import { ScreenHeader } from '@/shared/components/ScreenHeader'
 
 export default function TaskDetail() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const { data: task, isPending, isError } = useTaskByIdQuery(id)
+  const { session } = useProxyAuth()
+  const insets = useSafeAreaInsets()
+
+  const cancelTask = useCancelTaskMutation()
+  const [validateSheetOpen, setValidateSheetOpen] = useState(false)
+
+  const isClient = session?.userType === 'CLIENT'
+  const clientActions = task && isClient ? clientActionsFor(task) : null
+
+  const askCancel = () => {
+    if (!task) return
+    modal.confirm({
+      title: 'Cancelar tarefa?',
+      message:
+        'Essa ação não pode ser desfeita. Se um pagamento foi pré-autorizado, ele será estornado.',
+      okLabel: 'Cancelar tarefa',
+      destructive: true,
+      onOk: async () => {
+        try {
+          await cancelTask.mutateAsync({ taskId: task.id })
+          toast.success('Tarefa cancelada.')
+        } catch (e) {
+          // Defer to avoid the iOS "already presenting" stacking bug while
+          // the confirm modal is finishing its dismiss animation.
+          setTimeout(() => modal.error(extractErrorMessage(e)), 280)
+        }
+      },
+    })
+  }
+
+  const askContest = () => {
+    modal.info('Funcionalidade em breve.')
+  }
+
+  const openValidate = () => setValidateSheetOpen(true)
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={['top']}>
+      <Stack.Screen options={{ gestureEnabled: true }} />
       <ScreenHeader title="Detalhes da tarefa" />
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingHorizontal: 24,
-          paddingBottom: 24,
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        {isPending ? (
-          <DetailLoading />
-        ) : isError || !task ? (
-          <DetailNotFound />
-        ) : (
-          <>
-            <SummaryCard task={task} />
-            <SectionTitle>Andamento</SectionTitle>
-            <View
-              style={{
-                padding: 16,
-                borderRadius: 16,
-                backgroundColor: 'white',
-                borderWidth: 1,
-                borderColor: BORDER,
-              }}
-            >
-              <TaskTimeline status={task.status} />
-            </View>
+      <View style={{ flex: 1 }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingHorizontal: 24,
+            paddingBottom: clientActions ? 140 + insets.bottom : 24,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          {isPending ? (
+            <DetailLoading />
+          ) : isError || !task ? (
+            <DetailNotFound />
+          ) : (
+            <>
+              <SummaryCard task={task} />
+              <SectionTitle>Andamento</SectionTitle>
+              <View
+                style={{
+                  padding: 16,
+                  borderRadius: 16,
+                  backgroundColor: 'white',
+                  borderWidth: 1,
+                  borderColor: BORDER,
+                }}
+              >
+                <TaskTimeline status={task.status} />
+              </View>
 
-            {/* TODO(MD.b/c): sticky action button based on status × role */}
-            {/* TODO(MD.d): photo proof section when task.proofImageUrl exists */}
-          </>
-        )}
-      </ScrollView>
+              {/* TODO(MD.c): Proxy accept/start action + 3DS flow */}
+              {/* TODO(MD.d): photo proof section when task.proofImageUrl exists */}
+            </>
+          )}
+        </ScrollView>
+
+        {task && clientActions ? (
+          <ClientActionBar
+            actions={clientActions}
+            onCancel={askCancel}
+            onValidate={openValidate}
+            onContest={askContest}
+            insetsBottom={insets.bottom}
+            cancelLoading={cancelTask.isPending}
+          />
+        ) : null}
+      </View>
+
+      {task && isClient ? (
+        <ValidateTaskSheet
+          taskId={task.id}
+          visible={validateSheetOpen}
+          onClose={() => setValidateSheetOpen(false)}
+          onSuccess={() => {
+            setValidateSheetOpen(false)
+            toast.success('Pagamento liberado. Obrigado!')
+          }}
+        />
+      ) : null}
     </SafeAreaView>
+  )
+}
+
+// -----------------------------------------------------------------------------
+// Client action bar
+// -----------------------------------------------------------------------------
+
+type ClientActions = {
+  cancel: boolean
+  validate: boolean
+  contest: boolean
+}
+
+function clientActionsFor(task: TTaskDetail): ClientActions | null {
+  switch (task.status) {
+    case 'available':
+      return { cancel: true, validate: false, contest: false }
+    case 'in_progress':
+      // "Cancelar" hidden after the 1h window per SPEC + user's UX choice.
+      return canCancelTask(task)
+        ? { cancel: true, validate: false, contest: false }
+        : null
+    case 'verification_required':
+      return { cancel: false, validate: true, contest: true }
+    default:
+      return null
+  }
+}
+
+type ActionBarProps = {
+  actions: ClientActions
+  onCancel: () => void
+  onValidate: () => void
+  onContest: () => void
+  insetsBottom: number
+  cancelLoading: boolean
+}
+
+function ClientActionBar({
+  actions,
+  onCancel,
+  onValidate,
+  onContest,
+  insetsBottom,
+  cancelLoading,
+}: ActionBarProps) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'white',
+        borderTopWidth: 1,
+        borderTopColor: BORDER,
+        paddingHorizontal: 24,
+        paddingTop: 14,
+        paddingBottom: 14 + insetsBottom,
+      }}
+    >
+      {actions.validate ? (
+        <>
+          <Button
+            variant="primary"
+            size="xl"
+            fullWidth
+            onPress={onValidate}
+          >
+            Validar e pagar
+          </Button>
+          {actions.contest ? (
+            <Pressable
+              onPress={onContest}
+              hitSlop={8}
+              style={({ pressed }) => ({
+                marginTop: 12,
+                alignItems: 'center',
+                opacity: pressed ? 0.6 : 1,
+              })}
+              accessibilityRole="button"
+            >
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: '600',
+                  color: MUTED,
+                  letterSpacing: -0.1,
+                }}
+              >
+                Contestar conclusão
+              </Text>
+            </Pressable>
+          ) : null}
+        </>
+      ) : actions.cancel ? (
+        <Button
+          variant="destructive"
+          size="xl"
+          fullWidth
+          loading={cancelLoading}
+          onPress={onCancel}
+        >
+          Cancelar tarefa
+        </Button>
+      ) : null}
+    </View>
   )
 }
 

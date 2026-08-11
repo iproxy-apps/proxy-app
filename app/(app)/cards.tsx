@@ -1,3 +1,4 @@
+import { Stack } from 'expo-router'
 import { useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -61,6 +62,7 @@ export default function Cards() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={['top']}>
+      <Stack.Screen options={{ gestureEnabled: true }} />
       <ScreenHeader title="Cartão" />
 
       <ScrollView
