@@ -98,3 +98,21 @@ export function useValidateTaskMutation() {
     },
   })
 }
+
+/**
+ * Accepts an `available` task (Proxy action). Backend flips it to
+ * `in_progress`, maps the executor, and charges the client's saved card.
+ * Invalidates the detail, the executor's active list, and every city feed
+ * (task no longer appears as available anywhere).
+ */
+export function useStartTaskMutation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: tasksApis.start,
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: queryKeys.taskById(variables.taskId) })
+      qc.invalidateQueries({ queryKey: queryKeys.tasksActive })
+      qc.invalidateQueries({ queryKey: ['tasks', 'byCity'] })
+    },
+  })
+}

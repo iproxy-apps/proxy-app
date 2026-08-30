@@ -128,6 +128,10 @@ export interface TValidateTaskPayload {
   comment?: string
 }
 
+export interface TStartTaskPayload {
+  taskId: string
+}
+
 // -----------------------------------------------------------------------------
 // Responses
 // -----------------------------------------------------------------------------
@@ -135,3 +139,7 @@ export interface TValidateTaskPayload {
 export interface TCreateTaskResponse {
   id: string
 }
+
+export type TStartTaskResult =
+  | { status: 'succeeded' }
+  | { status: 'requires_action'; clientSecret: string | null }

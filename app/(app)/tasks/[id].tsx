@@ -8,6 +8,7 @@ import { extractErrorMessage } from '@/apis/api-client'
 import type { TTaskDetail } from '@/apis/tasks/tasks-api-types'
 import {
   useCancelTaskMutation,
+  useStartTaskMutation,
   useTaskByIdQuery,
 } from '@/apis/tasks/tasks-hooks'
 import {
@@ -37,10 +38,14 @@ export default function TaskDetail() {
   const insets = useSafeAreaInsets()
 
   const cancelTask = useCancelTaskMutation()
+  const startTask = useStartTaskMutation()
   const [validateSheetOpen, setValidateSheetOpen] = useState(false)
 
   const isClient = session?.userType === 'CLIENT'
+  const isProxy = session?.userType === 'PROXY'
   const clientActions = task && isClient ? clientActionsFor(task) : null
+  const proxyCanStart = !!(task && isProxy && task.status === 'available')
+  const showActionBar = !!clientActions || proxyCanStart
 
   const askCancel = () => {
     if (!task) return
@@ -69,6 +74,30 @@ export default function TaskDetail() {
 
   const openValidate = () => setValidateSheetOpen(true)
 
+  const askStart = () => {
+    if (!task) return
+    modal.confirm({
+      title: 'Aceitar essa tarefa?',
+      message:
+        'Ao aceitar, o cartão do cliente será cobrado imediatamente e a tarefa entrará em andamento.',
+      okLabel: 'Aceitar e iniciar',
+      onOk: async () => {
+        try {
+          const result = await startTask.mutateAsync({ taskId: task.id })
+          if (result.status === 'requires_action') {
+            toast.success(
+              'Tarefa aceita. Aguardando confirmação do pagamento pelo cliente.',
+            )
+          } else {
+            toast.success('Tarefa aceita! Bom trabalho.')
+          }
+        } catch (e) {
+          setTimeout(() => modal.error(extractErrorMessage(e)), 280)
+        }
+      },
+    })
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={['top']}>
       <Stack.Screen options={{ gestureEnabled: true }} />
@@ -80,7 +109,7 @@ export default function TaskDetail() {
           contentContainerStyle={{
             flexGrow: 1,
             paddingHorizontal: 24,
-            paddingBottom: clientActions ? 140 + insets.bottom : 24,
+            paddingBottom: showActionBar ? 140 + insets.bottom : 24,
           }}
           showsVerticalScrollIndicator={false}
         >
@@ -104,7 +133,6 @@ export default function TaskDetail() {
                 <TaskTimeline status={task.status} />
               </View>
 
-              {/* TODO(MD.c): Proxy accept/start action + 3DS flow */}
               {/* TODO(MD.d): photo proof section when task.proofImageUrl exists */}
             </>
           )}
@@ -118,6 +146,12 @@ export default function TaskDetail() {
             onContest={askContest}
             insetsBottom={insets.bottom}
             cancelLoading={cancelTask.isPending}
+          />
+        ) : proxyCanStart ? (
+          <ProxyActionBar
+            onStart={askStart}
+            insetsBottom={insets.bottom}
+            startLoading={startTask.isPending}
           />
         ) : null}
       </View>
@@ -191,8 +225,8 @@ function ClientActionBar({
         borderTopWidth: 1,
         borderTopColor: BORDER,
         paddingHorizontal: 24,
-        paddingTop: 14,
-        paddingBottom: 14 + insetsBottom,
+        paddingTop: 18,
+        paddingBottom: Math.max(18, insetsBottom),
       }}
     >
       {actions.validate ? (
@@ -240,6 +274,49 @@ function ClientActionBar({
           Cancelar tarefa
         </Button>
       ) : null}
+    </View>
+  )
+}
+
+// -----------------------------------------------------------------------------
+// Proxy action bar
+// -----------------------------------------------------------------------------
+
+type ProxyActionBarProps = {
+  onStart: () => void
+  insetsBottom: number
+  startLoading: boolean
+}
+
+function ProxyActionBar({
+  onStart,
+  insetsBottom,
+  startLoading,
+}: ProxyActionBarProps) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'white',
+        borderTopWidth: 1,
+        borderTopColor: BORDER,
+        paddingHorizontal: 24,
+        paddingTop: 18,
+        paddingBottom: Math.max(18, insetsBottom),
+      }}
+    >
+      <Button
+        variant="primary"
+        size="xl"
+        fullWidth
+        loading={startLoading}
+        onPress={onStart}
+      >
+        Aceitar e iniciar tarefa
+      </Button>
     </View>
   )
 }

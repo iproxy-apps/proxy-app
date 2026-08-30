@@ -3,6 +3,8 @@ import type {
   TCancelTaskPayload,
   TCreateTaskPayload,
   TCreateTaskResponse,
+  TStartTaskPayload,
+  TStartTaskResult,
   TTask,
   TTaskDetail,
   TValidateTaskPayload,
@@ -28,4 +30,9 @@ export const tasksApis = {
 
   validate: (payload: TValidateTaskPayload) =>
     api.post<void>('/tasks/validate', payload).then((r) => r.data),
+
+  start: (payload: TStartTaskPayload) =>
+    api
+      .post<TStartTaskResult>('/tasks/start', payload)
+      .then((r) => r.data),
 }
