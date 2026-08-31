@@ -45,6 +45,13 @@
           "locationAlwaysAndWhenInUsePermission": "Usamos sua localização pra preencher o endereço da tarefa automaticamente.",
           "locationWhenInUsePermission": "Usamos sua localização pra preencher o endereço da tarefa automaticamente."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Precisamos acessar suas fotos pra você anexar o comprovante da tarefa.",
+          "cameraPermission": "Precisamos acessar sua câmera pra você registrar o comprovante da tarefa."
+        }
       ]
     ],
     "experiments": {

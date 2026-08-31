@@ -100,6 +100,22 @@ export function useValidateTaskMutation() {
 }
 
 /**
+ * Uploads the proof photo for an `in_progress` task and moves it to
+ * `verification_required`. Multipart request — the mutation body is the same
+ * `TFinishTaskPayload` shape (taskId + { uri, name, type }).
+ */
+export function useFinishTaskMutation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: tasksApis.finish,
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: queryKeys.taskById(variables.taskId) })
+      qc.invalidateQueries({ queryKey: queryKeys.tasksActive })
+    },
+  })
+}
+
+/**
  * Accepts an `available` task (Proxy action). Backend flips it to
  * `in_progress`, maps the executor, and charges the client's saved card.
  * Invalidates the detail, the executor's active list, and every city feed

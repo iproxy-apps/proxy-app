@@ -79,6 +79,7 @@ export interface TTask {
   offeredPrice: string
   proxyEarnings: string | null
   platformFee: string | null
+  proofImageUrl: string | null
   status: TTaskStatus
   createdAt: string
   startedAt: string | null
@@ -93,6 +94,7 @@ export interface TTask {
  */
 export type TTaskDetail = TTask & {
   payment: TPayment | null
+  executorId: string | null
 }
 
 // -----------------------------------------------------------------------------
@@ -130,6 +132,15 @@ export interface TValidateTaskPayload {
 
 export interface TStartTaskPayload {
   taskId: string
+}
+
+export interface TFinishTaskPayload {
+  taskId: string
+  file: {
+    uri: string
+    name: string
+    type: string
+  }
 }
 
 // -----------------------------------------------------------------------------

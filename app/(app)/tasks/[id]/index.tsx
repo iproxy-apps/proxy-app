@@ -1,7 +1,7 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router'
 import { AlertTriangle, MapPin } from 'lucide-react-native'
 import { useState } from 'react'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { Image, Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { extractErrorMessage } from '@/apis/api-client'
@@ -25,6 +25,7 @@ import { useProxyAuth } from '@/feature/auth/hooks/useProxyAuth'
 import { TaskTimeline } from '@/feature/tasks/components/TaskTimeline'
 import { ValidateTaskSheet } from '@/feature/tasks/components/ValidateTaskSheet'
 import { canCancelTask } from '@/feature/tasks/utils/can-cancel'
+import { buildProofImageSource } from '@/feature/tasks/utils/proof'
 import { statusLabel } from '@/feature/tasks/utils/status-display'
 import { modal } from '@/lib/modal'
 import { toast } from '@/lib/toast'
@@ -43,9 +44,20 @@ export default function TaskDetail() {
 
   const isClient = session?.userType === 'CLIENT'
   const isProxy = session?.userType === 'PROXY'
+  const isExecutor = !!(
+    task &&
+    isProxy &&
+    session?.sub &&
+    task.executorId === session.sub
+  )
   const clientActions = task && isClient ? clientActionsFor(task) : null
   const proxyCanStart = !!(task && isProxy && task.status === 'available')
-  const showActionBar = !!clientActions || proxyCanStart
+  const proxyCanFinish = !!(
+    task &&
+    isExecutor &&
+    task.status === 'in_progress'
+  )
+  const showActionBar = !!clientActions || proxyCanStart || proxyCanFinish
 
   const askCancel = () => {
     if (!task) return
@@ -133,7 +145,12 @@ export default function TaskDetail() {
                 <TaskTimeline status={task.status} />
               </View>
 
-              {/* TODO(MD.d): photo proof section when task.proofImageUrl exists */}
+              {task.proofImageUrl ? (
+                <>
+                  <SectionTitle>Comprovante enviado</SectionTitle>
+                  <ProofPhoto taskId={task.id} />
+                </>
+              ) : null}
             </>
           )}
         </ScrollView>
@@ -149,9 +166,22 @@ export default function TaskDetail() {
           />
         ) : proxyCanStart ? (
           <ProxyActionBar
-            onStart={askStart}
+            label="Aceitar e iniciar tarefa"
+            onPress={askStart}
             insetsBottom={insets.bottom}
-            startLoading={startTask.isPending}
+            loading={startTask.isPending}
+          />
+        ) : proxyCanFinish ? (
+          <ProxyActionBar
+            label="Enviar comprovante e finalizar"
+            onPress={() =>
+              router.push({
+                pathname: '/tasks/[id]/finish',
+                params: { id: task.id },
+              })
+            }
+            insetsBottom={insets.bottom}
+            loading={false}
           />
         ) : null}
       </View>
@@ -283,15 +313,17 @@ function ClientActionBar({
 // -----------------------------------------------------------------------------
 
 type ProxyActionBarProps = {
-  onStart: () => void
+  label: string
+  onPress: () => void
   insetsBottom: number
-  startLoading: boolean
+  loading: boolean
 }
 
 function ProxyActionBar({
-  onStart,
+  label,
+  onPress,
   insetsBottom,
-  startLoading,
+  loading,
 }: ProxyActionBarProps) {
   return (
     <View
@@ -312,11 +344,40 @@ function ProxyActionBar({
         variant="primary"
         size="xl"
         fullWidth
-        loading={startLoading}
-        onPress={onStart}
+        loading={loading}
+        onPress={onPress}
       >
-        Aceitar e iniciar tarefa
+        {label}
       </Button>
+    </View>
+  )
+}
+
+// -----------------------------------------------------------------------------
+// Proof photo
+// -----------------------------------------------------------------------------
+
+function ProofPhoto({ taskId }: { taskId: string }) {
+  const { token } = useProxyAuth()
+  const source = buildProofImageSource(taskId, token)
+
+  if (!source) return null
+
+  return (
+    <View
+      style={{
+        borderRadius: 16,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: BORDER,
+        backgroundColor: 'white',
+      }}
+    >
+      <Image
+        source={source}
+        style={{ width: '100%', aspectRatio: 4 / 3 }}
+        resizeMode="cover"
+      />
     </View>
   )
 }
