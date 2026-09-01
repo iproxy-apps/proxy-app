@@ -1,3 +1,4 @@
+import { StatusBar } from 'expo-status-bar'
 import { router } from 'expo-router'
 import { ArrowLeft } from 'lucide-react-native'
 import { ReactNode } from 'react'
@@ -25,6 +26,10 @@ export function ScreenHeader({ title, back = true, onBack, right }: Props) {
         minHeight: 48,
       }}
     >
+      {/* All ScreenHeader-based screens use the light BG palette, so status
+          text must be dark. Home/splash mount their own light StatusBar for
+          their dark hero. */}
+      <StatusBar style="dark" />
       <View style={{ width: 40, alignItems: 'flex-start' }}>
         {back ? (
           <Pressable

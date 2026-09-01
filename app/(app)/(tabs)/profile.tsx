@@ -1,3 +1,4 @@
+import { StatusBar } from 'expo-status-bar'
 import { router } from 'expo-router'
 import { ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -37,6 +38,7 @@ export default function Profile() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={['top']}>
+      <StatusBar style="dark" />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{

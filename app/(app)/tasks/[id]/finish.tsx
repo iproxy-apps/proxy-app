@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
-import { Camera, ImageIcon, RefreshCw } from 'lucide-react-native'
+import { Camera, ImageIcon } from 'lucide-react-native'
 import { useState } from 'react'
 import {
   Alert,
@@ -50,8 +50,10 @@ export default function FinishTask() {
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: false,
+      allowsMultipleSelection: false,
+      selectionLimit: 1,
       quality: 0.7,
     })
     handlePickResult(result)
@@ -67,7 +69,7 @@ export default function FinishTask() {
       return
     }
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: false,
       quality: 0.7,
     })
@@ -127,63 +129,23 @@ export default function FinishTask() {
             lineHeight: 20,
           }}
         >
-          Tire uma foto ou envie da biblioteca mostrando que a tarefa foi
-          concluída. O cliente vai revisar antes de liberar o pagamento.
+          Uma foto mostrando que a tarefa foi concluída. O cliente vai revisar
+          antes de liberar o pagamento.
         </Text>
 
         {picked ? (
-          <View style={{ marginTop: 24 }}>
-            <View
-              style={{
-                borderRadius: 20,
-                overflow: 'hidden',
-                borderWidth: 1,
-                borderColor: BORDER,
-                backgroundColor: 'white',
-              }}
-            >
-              <Image
-                source={{ uri: picked.uri }}
-                style={{ width: '100%', aspectRatio: 1 }}
-                resizeMode="cover"
-              />
-            </View>
-
-            <Pressable
-              onPress={() => setPicked(null)}
-              hitSlop={8}
-              style={({ pressed }) => ({
-                marginTop: 12,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                opacity: pressed ? 0.6 : 1,
-              })}
-              accessibilityRole="button"
-            >
-              <RefreshCw size={14} color={MUTED} />
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: '600',
-                  color: MUTED,
-                  letterSpacing: -0.1,
-                }}
-              >
-                Trocar foto
-              </Text>
-            </Pressable>
+          <View style={{ marginTop: 28 }}>
+            <PreviewCard uri={picked.uri} onReplace={() => setPicked(null)} />
           </View>
         ) : (
-          <View style={{ marginTop: 24, gap: 12 }}>
-            <PickerCard
+          <View style={{ marginTop: 28, gap: 10 }}>
+            <OptionRow
               icon={<Camera size={22} color={GRAPHITE} />}
               title="Tirar foto"
               subtitle="Usar a câmera agora"
               onPress={pickFromCamera}
             />
-            <PickerCard
+            <OptionRow
               icon={<ImageIcon size={22} color={GRAPHITE} />}
               title="Escolher da biblioteca"
               subtitle="Selecionar uma foto existente"
@@ -212,61 +174,104 @@ export default function FinishTask() {
 }
 
 // -----------------------------------------------------------------------------
-// PickerCard
+// Option row — icon-left + title/subtitle left-aligned. Extensible: more rows
+// (Google Drive, compartilhar link, etc.) can be added below with no layout
+// change.
 // -----------------------------------------------------------------------------
 
-type PickerCardProps = {
+type OptionRowProps = {
   icon: React.ReactNode
   title: string
   subtitle: string
   onPress: () => void
 }
 
-function PickerCard({ icon, title, subtitle, onPress }: PickerCardProps) {
+function OptionRow({ icon, title, subtitle, onPress }: OptionRowProps) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        borderRadius: 16,
-        backgroundColor: 'white',
-        borderWidth: 1,
-        borderColor: BORDER,
-        opacity: pressed ? 0.7 : 1,
-      })}
-      accessibilityRole="button"
-    >
-      <View
-        style={{
-          width: 44,
-          height: 44,
-          borderRadius: 14,
-          backgroundColor: ACCENT_TINT_STRONG,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginRight: 14,
-        }}
-      >
-        {icon}
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text
+    <Pressable onPress={onPress} accessibilityRole="button">
+      {({ pressed }) => (
+        <View
           style={{
-            fontSize: 15,
-            fontWeight: '700',
-            color: GRAPHITE,
-            letterSpacing: -0.2,
+            flexDirection: 'row',
+            alignItems: 'center',
+            padding: 16,
+            borderRadius: 16,
+            backgroundColor: 'white',
+            borderWidth: 1,
+            borderColor: BORDER,
+            opacity: pressed ? 0.7 : 1,
           }}
         >
-          {title}
-        </Text>
-        <Text style={{ marginTop: 2, fontSize: 12, color: SUBTLE }}>
-          {subtitle}
-        </Text>
-      </View>
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              backgroundColor: ACCENT_TINT_STRONG,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 14,
+            }}
+          >
+            {icon}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontSize: 15,
+                fontWeight: '700',
+                color: GRAPHITE,
+                letterSpacing: -0.2,
+              }}
+            >
+              {title}
+            </Text>
+            <Text style={{ marginTop: 2, fontSize: 12, color: SUBTLE }}>
+              {subtitle}
+            </Text>
+          </View>
+        </View>
+      )}
     </Pressable>
+  )
+}
+
+// -----------------------------------------------------------------------------
+// Preview
+// -----------------------------------------------------------------------------
+
+function PreviewCard({
+  uri,
+  onReplace,
+}: {
+  uri: string
+  onReplace: () => void
+}) {
+  return (
+    <View>
+      <View
+        style={{
+          borderRadius: 20,
+          overflow: 'hidden',
+          borderWidth: 1,
+          borderColor: BORDER,
+          backgroundColor: 'white',
+          height: 320,
+        }}
+      >
+        <Image
+          source={{ uri }}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
+        />
+      </View>
+
+      <View style={{ marginTop: 14 }}>
+        <Button variant="outline" size="lg" fullWidth onPress={onReplace}>
+          Trocar foto
+        </Button>
+      </View>
+    </View>
   )
 }
 

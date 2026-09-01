@@ -1,4 +1,4 @@
-import { ChevronRight, MapPin } from 'lucide-react-native'
+import { MapPin } from 'lucide-react-native'
 import { Pressable, Text, View } from 'react-native'
 
 import type { TTask } from '@/apis/tasks/tasks-api-types'
@@ -6,7 +6,6 @@ import {
   ACCENT_TINT_STRONG,
   BORDER,
   GRAPHITE,
-  GRAPHITE_TINT,
   MUTED,
   SUBTLE,
 } from '@/common/theme/colors'
@@ -113,32 +112,17 @@ export function TaskCard({ task, onPress, distanceKm }: Props) {
               </View>
             </View>
 
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text
-                style={{
-                  fontSize: 15,
-                  fontWeight: '700',
-                  color: GRAPHITE,
-                  letterSpacing: -0.2,
-                  fontVariant: ['tabular-nums'],
-                }}
-              >
-                {formatBRL(task.offeredPrice)}
-              </Text>
-              <View
-                style={{
-                  marginTop: 6,
-                  width: 24,
-                  height: 24,
-                  borderRadius: 12,
-                  backgroundColor: GRAPHITE_TINT,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <ChevronRight size={14} color={GRAPHITE} />
-              </View>
-            </View>
+            <Text
+              style={{
+                fontSize: 15,
+                fontWeight: '700',
+                color: GRAPHITE,
+                letterSpacing: -0.2,
+                fontVariant: ['tabular-nums'],
+              }}
+            >
+              {formatBRL(task.offeredPrice)}
+            </Text>
           </View>
         </View>
       )}

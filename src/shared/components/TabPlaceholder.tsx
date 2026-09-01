@@ -1,3 +1,4 @@
+import { StatusBar } from 'expo-status-bar'
 import type { LucideIcon } from 'lucide-react-native'
 import type { ReactNode } from 'react'
 import { ScrollView, Text, View } from 'react-native'
@@ -23,6 +24,7 @@ type Props = {
 export function TabPlaceholder({ Icon, title, subtitle, description, footer }: Props) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={['top']}>
+      <StatusBar style="dark" />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{

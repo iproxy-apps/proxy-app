@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
-import { ChevronRight, Search, Sparkles } from 'lucide-react-native'
+import { ChevronRight, Search, Sparkles, Zap } from 'lucide-react-native'
 import { useMemo, useState } from 'react'
 import {
   ActivityIndicator,
@@ -15,10 +15,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import type { TSessionPayload } from '@/apis/auth/auth-api-types'
 import type { TTask } from '@/apis/tasks/tasks-api-types'
-import { useAvailableTasksInfiniteQuery } from '@/apis/tasks/tasks-hooks'
+import {
+  useActiveTasksQuery,
+  useAvailableTasksInfiniteQuery,
+} from '@/apis/tasks/tasks-hooks'
 import {
   ACCENT,
   ACCENT_TINT,
+  ACCENT_TINT_STRONG,
   BG,
   BORDER,
   CREAM,
@@ -49,6 +53,10 @@ export function ProxyHome({ session }: Props) {
 
   const { data, isPending, isFetchingNextPage, hasNextPage, fetchNextPage } =
     useAvailableTasksInfiniteQuery(city)
+
+  // Tarefas que este Proxy está executando — o backend filtra /tasks/active
+  // pra proxies retornarem só as que aceitaram, em qualquer status não-terminal.
+  const { data: activeTasks } = useActiveTasksQuery()
 
   const { position: devicePosition } = useDeviceLocation()
 
@@ -116,6 +124,8 @@ export function ProxyHome({ session }: Props) {
             openWallet={openWallet}
             resultCount={tasks.length}
             loading={isPending}
+            activeTasks={activeTasks ?? []}
+            onOpenTask={openTask}
           />
         }
         ListEmptyComponent={
@@ -152,6 +162,8 @@ type HeaderProps = {
   openWallet: () => void
   resultCount: number
   loading: boolean
+  activeTasks: TTask[]
+  onOpenTask: (task: TTask) => void
 }
 
 function ProxyHomeHeader({
@@ -165,6 +177,8 @@ function ProxyHomeHeader({
   openWallet,
   resultCount,
   loading,
+  activeTasks,
+  onOpenTask,
 }: HeaderProps) {
   return (
     <View>
@@ -279,6 +293,16 @@ function ProxyHomeHeader({
           )}
         </Pressable>
       </View>
+
+      {/* Banner compacto pra tarefas em andamento (só aparece se houver) */}
+      {activeTasks.length > 0 ? (
+        <View style={{ paddingHorizontal: 24, marginTop: 14 }}>
+          <ActiveTasksBanner
+            tasks={activeTasks}
+            onOpenTask={onOpenTask}
+          />
+        </View>
+      ) : null}
 
       {/* Search */}
       <View style={{ paddingHorizontal: 24, marginTop: 20 }}>
@@ -396,6 +420,87 @@ function ProxyHomeHeader({
         ) : null}
       </View>
     </View>
+  )
+}
+
+// -----------------------------------------------------------------------------
+// Active tasks banner
+// -----------------------------------------------------------------------------
+
+function ActiveTasksBanner({
+  tasks,
+  onOpenTask,
+}: {
+  tasks: TTask[]
+  onOpenTask: (task: TTask) => void
+}) {
+  // MVP: tapping the banner always opens the most-recent active task. If the
+  // Proxy has more than one in flight, we surface the count; a dedicated list
+  // screen can come later.
+  const first = tasks[0]
+  const label =
+    tasks.length === 1
+      ? '1 tarefa em andamento'
+      : `${tasks.length} tarefas em andamento`
+
+  return (
+    <Pressable
+      onPress={() => onOpenTask(first)}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      {({ pressed }) => (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            padding: 14,
+            borderRadius: 14,
+            backgroundColor: 'white',
+            borderWidth: 1,
+            borderColor: BORDER,
+            opacity: pressed ? 0.85 : 1,
+          }}
+        >
+          <View
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 12,
+              backgroundColor: ACCENT_TINT_STRONG,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+            }}
+          >
+            <Zap size={18} color={GRAPHITE} />
+          </View>
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: '700',
+                color: GRAPHITE,
+                letterSpacing: -0.1,
+              }}
+            >
+              {label}
+            </Text>
+            <Text
+              style={{
+                marginTop: 2,
+                fontSize: 12,
+                color: MUTED,
+              }}
+              numberOfLines={1}
+            >
+              {first.title}
+            </Text>
+          </View>
+          <ChevronRight size={18} color={SUBTLE} />
+        </View>
+      )}
+    </Pressable>
   )
 }
 
