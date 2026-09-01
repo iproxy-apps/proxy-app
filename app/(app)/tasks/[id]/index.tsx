@@ -1,7 +1,7 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router'
 import { AlertTriangle, MapPin } from 'lucide-react-native'
 import { useState } from 'react'
-import { Image, Pressable, ScrollView, Text, View } from 'react-native'
+import { Image, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { extractErrorMessage } from '@/apis/api-client'
@@ -58,6 +58,9 @@ export default function TaskDetail() {
     task.status === 'in_progress'
   )
   const showActionBar = !!clientActions || proxyCanStart || proxyCanFinish
+  // Two-button ActionBar (validate + contest) needs extra scroll padding so
+  // the last cards aren't hidden beneath it.
+  const actionBarPad = clientActions?.contest ? 190 : 140
 
   const askCancel = () => {
     if (!task) return
@@ -121,7 +124,7 @@ export default function TaskDetail() {
           contentContainerStyle={{
             flexGrow: 1,
             paddingHorizontal: 24,
-            paddingBottom: showActionBar ? 140 + insets.bottom : 24,
+            paddingBottom: showActionBar ? actionBarPad + insets.bottom : 24,
           }}
           showsVerticalScrollIndicator={false}
         >
@@ -270,27 +273,16 @@ function ClientActionBar({
             Validar e pagar
           </Button>
           {actions.contest ? (
-            <Pressable
-              onPress={onContest}
-              hitSlop={8}
-              style={({ pressed }) => ({
-                marginTop: 12,
-                alignItems: 'center',
-                opacity: pressed ? 0.6 : 1,
-              })}
-              accessibilityRole="button"
-            >
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: '600',
-                  color: MUTED,
-                  letterSpacing: -0.1,
-                }}
+            <View style={{ marginTop: 10 }}>
+              <Button
+                variant="outline"
+                size="lg"
+                fullWidth
+                onPress={onContest}
               >
                 Contestar conclusão
-              </Text>
-            </Pressable>
+              </Button>
+            </View>
           ) : null}
         </>
       ) : actions.cancel ? (

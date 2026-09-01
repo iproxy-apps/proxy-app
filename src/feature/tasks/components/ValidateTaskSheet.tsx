@@ -94,12 +94,12 @@ export function ValidateTaskSheet({
   }, [visible, opacity, translateY])
 
   const handleValidate = async () => {
-    if (validate.isPending) return
+    if (validate.isPending || rating <= 0) return
     setSheetError(null)
     try {
       await validate.mutateAsync({
         taskId,
-        rating: rating > 0 ? rating : undefined,
+        rating,
         comment: comment.trim() ? comment.trim() : undefined,
       })
       onSuccess()
@@ -192,11 +192,22 @@ export function ValidateTaskSheet({
               marginBottom: 20,
             }}
           >
-            Ao confirmar, liberamos o pagamento para o Proxy. Sua avaliação é
-            opcional, mas ajuda a comunidade.
+            Ao confirmar, liberamos o pagamento para o Proxy. Deixe uma nota
+            pra ajudar a comunidade.
           </Text>
 
-          <View style={{ alignItems: 'center', marginBottom: 20 }}>
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: '600',
+              color: GRAPHITE,
+              marginBottom: 10,
+              textAlign: 'center',
+            }}
+          >
+            Sua avaliação
+          </Text>
+          <View style={{ alignItems: 'center', marginBottom: 22 }}>
             <RatingInput value={rating} onChange={setRating} size={36} />
           </View>
 
@@ -251,6 +262,7 @@ export function ValidateTaskSheet({
               variant="primary"
               size="xl"
               fullWidth
+              disabled={rating <= 0}
               loading={validate.isPending}
               onPress={handleValidate}
             >
