@@ -44,3 +44,18 @@ export function useVerifyResetCodeMutation() {
 export function useResetPasswordMutation() {
   return useMutation({ mutationFn: authApis.resetPassword })
 }
+
+/**
+ * Re-issues the JWT with a fresh snapshot of the user (walletBalance,
+ * stripeAccountReady, rating, ...). Called after external flows that mutate
+ * the account behind the app's back — most notably the Stripe onboarding
+ * return.
+ */
+export function useRefreshSessionMutation() {
+  return useMutation({
+    mutationFn: async () => {
+      const { session } = await authApis.refreshSession()
+      await useAuthStore.getState().setSession(session)
+    },
+  })
+}

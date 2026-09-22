@@ -52,7 +52,8 @@
           "photosPermission": "Precisamos acessar suas fotos pra você anexar o comprovante da tarefa.",
           "cameraPermission": "Precisamos acessar sua câmera pra você registrar o comprovante da tarefa."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

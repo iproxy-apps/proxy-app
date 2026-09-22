@@ -9,4 +9,5 @@ export const queryKeys = {
   tasksActive: ['tasks', 'active'] as const,
   tasksByCity: (city: string) => ['tasks', 'byCity', city] as const,
   taskById: (id: string) => ['tasks', 'byId', id] as const,
+  transactionHistory: ['wallet', 'transactionHistory'] as const,
 }

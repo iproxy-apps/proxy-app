@@ -15,6 +15,9 @@ export const authApis = {
   session: (payload: TSignInPayload) =>
     api.post<TSessionResponse>('/auth/session', payload).then((r) => r.data),
 
+  refreshSession: () =>
+    api.get<TSessionResponse>('/auth/session/refresh').then((r) => r.data),
+
   forgotPassword: (payload: TForgotPasswordPayload) =>
     api.post<{ message: string }>('/auth/forgot-password', payload).then((r) => r.data),
 

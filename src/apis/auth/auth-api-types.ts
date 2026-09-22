@@ -16,6 +16,7 @@ export interface TSessionPayload {
   avatarUrl: string | null
   phoneNumber: string
   stripeAccountId: string | null
+  stripeAccountReady: boolean
   stripeCustomerId: string | null
   userType: TUserType
   documentType: TDocumentType | null
