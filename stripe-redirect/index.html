@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Proxy — voltando pro app</title>
+    <meta http-equiv="refresh" content="0; url=proxyapp://wallet" />
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
+          Arial, sans-serif;
+        background: #f8f6f2;
+        color: #1e2024;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        text-align: center;
+        gap: 20px;
+      }
+      .logo {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        background: #f9c526;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 24px;
+        color: #1e2024;
+      }
+      h1 {
+        font-size: 22px;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: -0.5px;
+      }
+      p {
+        margin: 0;
+        color: #5b6068;
+        line-height: 1.45;
+        max-width: 320px;
+        font-size: 15px;
+      }
+      a.button {
+        display: inline-block;
+        padding: 14px 22px;
+        border-radius: 14px;
+        background: #1e2024;
+        color: #f8f6f2;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 15px;
+        margin-top: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="logo">P</div>
+    <h1>Voltando pro Proxy…</h1>
+    <p>
+      Se o app não abrir automaticamente em alguns segundos, toca no botão
+      abaixo.
+    </p>
+    <a class="button" href="proxyapp://wallet">Abrir o Proxy</a>
+    <script>
+      // Redundant redirect: some browsers ignore meta refresh on first paint.
+      setTimeout(function () {
+        window.location.href = 'proxyapp://wallet'
+      }, 200)
+    </script>
+  </body>
+</html>
