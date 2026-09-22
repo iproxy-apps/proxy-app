@@ -1,16 +1,22 @@
 import { Tabs } from 'expo-router'
 import { History, Home, User, Wallet } from 'lucide-react-native'
-import { Platform, StyleSheet } from 'react-native'
+import { Platform, StyleSheet, type ColorValue } from 'react-native'
 
 import { useProxyAuth } from '@/feature/auth/hooks/useProxyAuth'
 
 import { BG, BORDER, GRAPHITE, MUTED } from '@/common/theme/colors'
 
-type IconProps = { color: string; focused: boolean }
+type IconProps = { color: ColorValue; focused: boolean }
 
 const makeIcon = (Icon: typeof Home) => {
   function TabIcon({ color, focused }: IconProps) {
-    return <Icon size={22} color={color} strokeWidth={focused ? 2.2 : 1.75} />
+    return (
+      <Icon
+        size={22}
+        color={color as string}
+        strokeWidth={focused ? 2.2 : 1.75}
+      />
+    )
   }
   return TabIcon
 }

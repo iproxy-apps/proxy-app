@@ -1,10 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { Animated, View } from 'react-native'
 
 import { BORDER, GRAPHITE_TINT, GRAPHITE_TINT_SOFT } from '@/common/theme/colors'
 
 export function TaskCardSkeleton() {
-  const opacity = useRef(new Animated.Value(0.55)).current
+  const [opacity] = useState(() => new Animated.Value(0.55))
 
   useEffect(() => {
     const loop = Animated.loop(

@@ -1,5 +1,5 @@
 import { X } from 'lucide-react-native'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Animated,
   Dimensions,
@@ -48,11 +48,12 @@ export function ValidateTaskSheet({
   const [mounted, setMounted] = useState(visible)
   const [sheetError, setSheetError] = useState<string | null>(null)
 
-  const opacity = useRef(new Animated.Value(0)).current
-  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current
+  const [opacity] = useState(() => new Animated.Value(0))
+  const [translateY] = useState(() => new Animated.Value(SCREEN_HEIGHT))
 
   useEffect(() => {
     if (visible) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMounted(true)
       Animated.parallel([
         Animated.timing(opacity, {
@@ -91,7 +92,9 @@ export function ValidateTaskSheet({
         }
       })
     }
-  }, [visible, opacity, translateY])
+    // opacity/translateY are stable useState-initialized Animated.Values.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible])
 
   const handleValidate = async () => {
     if (validate.isPending || rating <= 0) return
@@ -120,7 +123,7 @@ export function ValidateTaskSheet({
     >
       <Animated.View
         style={{
-          ...StyleSheet.absoluteFillObject,
+          ...StyleSheet.absoluteFill,
           backgroundColor: 'black',
           opacity,
         }}

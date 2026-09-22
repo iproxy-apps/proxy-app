@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { Animated, View } from 'react-native'
 
 /**
@@ -6,7 +6,7 @@ import { Animated, View } from 'react-native'
  * and border-radius) so the layout doesn't shift when the real card mounts.
  */
 export function CardSkeleton() {
-  const pulse = useRef(new Animated.Value(0.55)).current
+  const [pulse] = useState(() => new Animated.Value(0.55))
 
   useEffect(() => {
     const loop = Animated.loop(

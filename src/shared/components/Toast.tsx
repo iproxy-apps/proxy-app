@@ -1,6 +1,6 @@
 import { useSegments } from 'expo-router'
 import { AlertCircle, CheckCircle2, Info } from 'lucide-react-native'
-import { useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { Animated, Platform, Pressable, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
@@ -42,8 +42,8 @@ export function Toast() {
   const segments = useSegments()
   const inTabs = (segments as string[]).includes('(tabs)')
 
-  const translateY = useRef(new Animated.Value(120)).current
-  const opacity = useRef(new Animated.Value(0)).current
+  const [translateY] = useState(() => new Animated.Value(120))
+  const [opacity] = useState(() => new Animated.Value(0))
 
   useEffect(() => {
     if (!open) {

@@ -1,6 +1,6 @@
 import { CardField, useStripe } from '@stripe/stripe-react-native'
 import { X } from 'lucide-react-native'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Animated,
   Dimensions,
@@ -45,11 +45,12 @@ export function AddCardSheet({ visible, onClose, onSuccess }: Props) {
   // alone would only cover the second half and leave a visible ~500ms gap.
   const [submitting, setSubmitting] = useState(false)
 
-  const opacity = useRef(new Animated.Value(0)).current
-  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current
+  const [opacity] = useState(() => new Animated.Value(0))
+  const [translateY] = useState(() => new Animated.Value(SCREEN_HEIGHT))
 
   useEffect(() => {
     if (visible) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMounted(true)
       Animated.parallel([
         Animated.timing(opacity, {
@@ -89,7 +90,9 @@ export function AddCardSheet({ visible, onClose, onSuccess }: Props) {
         }
       })
     }
-  }, [visible, opacity, translateY])
+    // opacity/translateY are stable useState-initialized Animated.Values.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible])
 
   const handleSave = async () => {
     if (!complete || submitting) return
@@ -124,7 +127,7 @@ export function AddCardSheet({ visible, onClose, onSuccess }: Props) {
     >
       <Animated.View
         style={{
-          ...StyleSheet.absoluteFillObject,
+          ...StyleSheet.absoluteFill,
           backgroundColor: 'black',
           opacity,
         }}
