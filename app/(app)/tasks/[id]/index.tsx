@@ -22,6 +22,8 @@ import {
 } from '@/common/theme/colors'
 import { formatBRL, formatDateTime } from '@/common/utils/format'
 import { useProxyAuth } from '@/feature/auth/hooks/useProxyAuth'
+import { CounterpartCard } from '@/feature/tasks/components/CounterpartCard'
+import { ReceiptCard } from '@/feature/tasks/components/ReceiptCard'
 import { TaskTimeline } from '@/feature/tasks/components/TaskTimeline'
 import { ValidateTaskSheet } from '@/feature/tasks/components/ValidateTaskSheet'
 import { canCancelTask } from '@/feature/tasks/utils/can-cancel'
@@ -135,6 +137,33 @@ export default function TaskDetail() {
           ) : (
             <>
               <SummaryCard task={task} />
+
+              {isClient && task.executor ? (
+                <>
+                  <SectionTitle>Executor</SectionTitle>
+                  <CounterpartCard
+                    counterpart={task.executor}
+                    role="executor"
+                  />
+                </>
+              ) : null}
+
+              {isExecutor && task.ownerId ? (
+                <>
+                  <SectionTitle>Cliente</SectionTitle>
+                  <CounterpartCard
+                    counterpart={{
+                      id: task.ownerId.id,
+                      name: task.ownerId.name,
+                      avatarUrl: task.ownerId.avatarUrl,
+                      isVerified: task.ownerId.isVerified,
+                      rating: task.ownerId.rating,
+                    }}
+                    role="client"
+                  />
+                </>
+              ) : null}
+
               <SectionTitle>Andamento</SectionTitle>
               <View
                 style={{
@@ -152,6 +181,16 @@ export default function TaskDetail() {
                 <>
                   <SectionTitle>Comprovante enviado</SectionTitle>
                   <ProofPhoto taskId={task.id} />
+                </>
+              ) : null}
+
+              {task.status === 'completed' && task.payment ? (
+                <>
+                  <SectionTitle>Recibo</SectionTitle>
+                  <ReceiptCard
+                    task={task}
+                    role={isClient ? 'client' : 'proxy'}
+                  />
                 </>
               ) : null}
             </>

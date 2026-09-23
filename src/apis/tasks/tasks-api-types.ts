@@ -88,6 +88,19 @@ export interface TTask {
 }
 
 /**
+ * Public-facing subset of a user, used for the "counterpart" on a task —
+ * the executor (proxy) seen by the CLIENT, or the owner (client) seen by
+ * the PROXY. Rating is a Decimal string on the wire.
+ */
+export interface TTaskCounterpart {
+  id: string
+  name: string
+  avatarUrl: string | null
+  isVerified: boolean
+  rating: string
+}
+
+/**
  * Task as returned by GET /tasks/:id — same as TTask plus the embedded
  * payment record when one exists. The list endpoints (/tasks/active,
  * /tasks/fetch) do NOT include payment.
@@ -95,6 +108,7 @@ export interface TTask {
 export type TTaskDetail = TTask & {
   payment: TPayment | null
   executorId: string | null
+  executor: TTaskCounterpart | null
 }
 
 // -----------------------------------------------------------------------------
