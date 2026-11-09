@@ -34,7 +34,7 @@ Access from code via `process.env.EXPO_PUBLIC_API_URL`.
 
 ## Routing
 
-Expo Router with file-based routing. Each file under [app/](./app) is a route; `_layout.tsx` wraps nested routes. The root [_layout.tsx](./app/_layout.tsx) imports `global.css` (Tailwind) and wraps everything in `SafeAreaProvider`. Typed routes are enabled (`app.json` → `experiments.typedRoutes`), so `<Link href="/...">` is autocompleted.
+Expo Router with file-based routing. Each file under [app/](./app) is a route; `_layout.tsx` wraps nested routes. The root [\_layout.tsx](./app/_layout.tsx) imports `global.css` (Tailwind) and wraps everything in `SafeAreaProvider`. Typed routes are enabled (`app.json` → `experiments.typedRoutes`), so `<Link href="/...">` is autocompleted.
 
 Route groups (folders wrapped in parens, e.g. `(auth)`) organize routes without adding a segment to the URL. Deep link scheme: `proxyapp://`.
 
@@ -71,20 +71,22 @@ Every screen with a primary CTA follows this exact skeleton. CTAs always live **
 ```tsx
 <SafeAreaView style={{ flex: 1, backgroundColor: BG }}>
   <ScreenHeader title="..." />
-  <KeyboardAvoidingView style={{ flex: 1 }}> {/* only when the screen has form inputs */}
+  <KeyboardAvoidingView style={{ flex: 1 }}>
+    {' '}
+    {/* only when the screen has form inputs */}
     <ScrollView
       style={{ flex: 1 }}
       contentContainerStyle={{
-        flexGrow: 1,           // critical: lets the spacer expand
+        flexGrow: 1, // critical: lets the spacer expand
         paddingHorizontal: 24,
         paddingBottom: 24,
       }}
     >
       {/* heading / form / cards — top-aligned */}
       <View>...</View>
-      <View style={{ flex: 1 }} />   {/* absorbs leftover space */}
+      <View style={{ flex: 1 }} /> {/* absorbs leftover space */}
       <View style={{ marginTop: 24 }}>
-        <Button>Continuar</Button>    {/* CTA at the end of the scroll */}
+        <Button>Continuar</Button> {/* CTA at the end of the scroll */}
       </View>
     </ScrollView>
   </KeyboardAvoidingView>
@@ -92,16 +94,18 @@ Every screen with a primary CTA follows this exact skeleton. CTAs always live **
 ```
 
 Behavior:
+
 - **Short content** → spacer expands, button sits at the bottom of the visible area.
 - **Long content** → spacer collapses, button sits naturally after the last item (visible after scrolling to the end).
 
-Reference: [app/index.tsx](./app/index.tsx), [app/(auth)/choose-profile.tsx](./app/(auth)/choose-profile.tsx), [app/(auth)/sign-up.tsx](./app/(auth)/sign-up.tsx).
+Reference: [app/index.tsx](./app/index.tsx), [app/(auth)/choose-profile.tsx](<./app/(auth)/choose-profile.tsx>), [app/(auth)/sign-up.tsx](<./app/(auth)/sign-up.tsx>).
 
 ## Conventions
 
 - **Styling**: prefer NativeWind `className` over `StyleSheet`. Use design tokens from `tailwind.config.js`; avoid raw hex values in components.
 - **Copy**: all user-facing text in **Portuguese (Brasil)**.
 - **Money formatting**: `R$ 1.234,56` (BRL, Brazilian locale).
+
 ## Architecture
 
 Layered structure mirroring our other projects (flex-v3-frontend, premium-frontend). Each layer has a single responsibility — don't mix:
@@ -148,6 +152,7 @@ src/
 ```
 
 **Layering rules**:
+
 - `apis/` → owns all backend entity types. Stores and features **import** from here; never duplicate.
 - `store/` → can import from `apis/` and `lib/`. Stores expose state + actions.
 - `feature/<domain>/` → imports from `apis/`, `store/`, `shared/`, `common/`, `lib/`. Owns domain-specific UI + hooks. Never imported by `shared/` or `common/`.
@@ -157,6 +162,7 @@ src/
 - `app/` (routes) → glue layer. Imports from anywhere; ideally thin (state + handlers + JSX delegating to `feature/*/components/`).
 
 **Conventions**:
+
 - **Path aliases**: `@/*` resolves to `src/*`. Always use `@/feature/cards/components/CardPreview` instead of `../../../src/feature/...`. Configured in `tsconfig.json` (TS) + `babel.config.js` via `babel-plugin-module-resolver` (runtime).
 - **Type naming**: prefix backend entity types and payloads with `T` (e.g., `TCard`, `TSessionPayload`, `TCreateAccountPayload`). React component types and local interfaces (e.g., `MenuRowProps`, `CardState`) stay un-prefixed.
 - **Type imports**: always `import type { ... }` for types (not `import { ... }`).
