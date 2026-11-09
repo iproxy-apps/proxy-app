@@ -167,12 +167,10 @@ src/
 
 The visual/UX reference lives in the Lovable export at `~/Downloads/proxy-prototype`. The output is web (React + Vite + shadcn/ui), so treat it as a design reference, not code to port directly.
 
-## graphify
+## Release 1.0 workstream (read first)
 
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
-
-Rules:
-- ALWAYS read graphify-out/GRAPH_REPORT.md before reading any source files, running grep/glob searches, or answering codebase questions. The graph is your primary map of the codebase.
-- IF graphify-out/wiki/index.md EXISTS, navigate it instead of reading raw files
-- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+All audit reports, the release plan and the live status board for the 1.0 release live in
+`proxy-app/docs/release-1.0/`. At the start of ANY session on either repo, read
+`proxy-app/docs/release-1.0/START-HERE.md` before touching code: it says what is done, what is in
+progress and what to pick up next. When you finish a task, update `STATUS.md` in that folder in the
+same change, so progress survives new sessions, machine switches and context compaction.
