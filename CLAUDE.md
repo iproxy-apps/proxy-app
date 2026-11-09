@@ -180,3 +180,4 @@ All audit reports, the release plan and the live status board for the 1.0 releas
 `proxy-app/docs/release-1.0/START-HERE.md` before touching code: it says what is done, what is in
 progress and what to pick up next. When you finish a task, update `STATUS.md` in that folder in the
 same change, so progress survives new sessions, machine switches and context compaction.
+
