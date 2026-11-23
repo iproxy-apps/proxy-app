@@ -9,24 +9,25 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P2-T08b` |
-| step | build (card `cards/P2-T08b.md`, implementer dispatched) |
+| task | `P2-T11` |
+| step | build (card `cards/P2-T11.md`, implementer dispatched) |
 | files touched | — ; api Phase 0 complete at `44e09cf` |
 | last gate | app @b64fc44 (Phase 1 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · maestro A 4/4 (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.000 % on 15 screens |
-| last gate (api) | api @9dece55 (P2-T10, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 324/324 (55 suites) · e2e 37/37 suites, 291 passed · CI on `release-1.0` green again from `b62e7b4` (harness fix) |
+| last gate (api) | api @313ccae (P2-T08b, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 333/333 (57 suites) · e2e 37/37 suites, 291 passed (pre-fix-round run) · CI on `release-1.0` green through `9dece55` |
 | waiting on owner | — (decision round closed 2026-11-23; D23/D26 deferred by the owner; Google Places key (D16) needed before the P3 address task) |
-| next task | `P2-T11` |
+| next task | `P2-T12` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity and D26 developer account type
   (both deferred by the owner to "when the version is nearly final"); Google Cloud Places API key for D16
   (needed by the Phase 3 address task, goes in the app `.env` only).
 - **Owner decision round closed (2026-11-23):** every `DEFAULT (confirm)` row is now SETTLED in `DECISIONS.md`; D1 (80/20, min R$ 20), D3 (charge at start, automatic capture, transfer at validate), D9 (30 m access + 60 d rotating refresh token), D12 (no documents stored at all), D14 (edit profile name/phone IN 1.0), D16 (Google Places autocomplete + served-city whitelist) changed; D23/D26 deferred by the owner until the app is nearly final; D24 Cloudflare Pages or Vercel; D25 Resend preferred. Plans for phases 1–3 carry an `## Amendments (2026-11-23 …)` section with the rewritten tasks and rulings.
-- **Phase state:** L done · P0 done (CI green on GitHub) · P1 done (2026-11-23) · P2 in progress (T01–T10 done) · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
+- **Phase state:** L done · P0 done (CI green on GitHub) · P1 done (2026-11-23) · P2 in progress (T01–T10 + T08b done) · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P2-T08b done (api `313ccae`) incl. the forgot-password timing fix carried from the P2-T08 review. P2-T11 dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | CI green again on api `b62e7b4` (the `app.listen(0)` harness fix). P2-T10 done (api `9dece55`). P2-T08b dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | **CI red on api `b7a6ade`** (P2-T08): `verify-reset-code › caps attempts under parallel guesses` → `read ECONNRESET`. Root cause (harness, not product code): `createTestApp` only ran `app.init()`, so supertest `listen(0)`/`close()`d the shared server per request and parallel `Promise.all` specs raced the close. Fix: `await app.listen(0)` in `test/setup/test-app.factory.ts` (api `b27e3b4`, own commit). Same family likely behind earlier one-off e2e flakes with parallel requests; the 404/401 one-offs and the exit-139 self-kill remain under watch (tracer loaded in orchestrator runs; 4 traced runs clean so far). P2-T09 done (api `b62e7b4`) after one fix round. P2-T10 dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P2-T08 done (api `b7a6ade`) after two fix rounds (atomic attempt cap, newest-code-only, reset-password cap, verify lockout regression). **e2e crash watch (exit 139):** 3 occurrences today (P2-T07 run 1, P2-T08 runs 1 and 4), 5 macOS crash reports; NOT a real segfault — the `.ips` stack shows JS calling `process.kill(pid, SIGSEGV)` from a promise job: `configureApp` → `app.enableShutdownHooks()` registers Nest listeners for all `ShutdownSignal`s (incl. SIGSEGV/SIGBUS) in every e2e app and the cleanup re-raises the signal. Origin of the initial `SIGSEGV` event unknown; tracer `scratchpad/trace-kill.cjs` (wraps `process.kill`/`process.emit`) now loaded via `NODE_OPTIONS` in orchestrator e2e runs — first traced run clean. Also one 404-vs-200 flake (`transaction-history`) in run 2. P2-T09 dispatched. |
