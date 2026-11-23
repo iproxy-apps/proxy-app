@@ -9,13 +9,13 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P0-T12` |
+| task | `P0-T13` |
 | step | build |
-| files touched | card `cards/P0-T12.md` written; api tree clean at `84d1f34` |
+| files touched | card `cards/P0-T13.md` written; app tree clean; api `release-1.0` complete for Phase 0 at `44e09cf` |
 | last gate | app @L-T05 commit: tsc ✔ eslint ✔ · maestro baseline 3/3 COMPLETED (2026-11-23) |
-| last gate (api) | api @84d1f34 (P0-T11; type-check/lint/jest/e2e unchanged from P0-T10, orchestrator-run 2026-11-23): type-check (strict) 0 · eslint 0/0 on 196 files · jest 187/187 (44 suites) · e2e 26/26 suites, 1 skipped (parked delete-account → Phase 2 D13), 131 passed — **no known reds**: a gate is green only when every step exits 0 |
+| last gate (api) | api @44e09cf (P0-T12, orchestrator-run 2026-11-23): type-check (strict) 0 · eslint 0/0 on 196 files · jest 187/187 (44 suites) · e2e 26/26 suites, 1 skipped (parked delete-account → Phase 2 D13), 131 passed — **no known reds**: a gate is green only when every step exits 0 |
 | waiting on owner | — |
-| next task | `P0-T13` (app) |
+| next task | `P0-T14` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity, D24 static-site origin,
   D26 developer account type (Play closed test clock); plus
@@ -26,6 +26,7 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T12 done (api `44e09cf`): CI workflow, awaiting push. Backend half of Phase 0 complete (P0-T01…T12). P0-T13 card written. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T11 done (api `84d1f34`): Dockerfile builds; plan's image checks corrected. P0-T12 card written. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T10 done (api `966d0a7`): delete-account case parked; api gate fully green for the first time. P0-T11 card written. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T09 done (api `0d6f769`): ESLint 9 flat config, lint gate now part of the api gate. P0-T10 card written. |
@@ -68,7 +69,7 @@ Tasks: 5
 | P0-T09 | ESLint 9 flat config for proxy-api, `lint` without `--fix` | — | done | api `0d6f769` · eslint 9.39.5 + typescript-eslint 8.73 · first run: 1 error (unused type import), fixed by hand, 0 rules downgraded · final 0/0 on 196 files · jest 187/187 · review clean (1 Minor accepted: caret resolved to ^8.73.0) |
 | P0-T10 | Park the red `delete-account` e2e case with a Phase 2 pointer | — | done | api `966d0a7` · `it.skip` + Phase 2 pointer (BE-17 / D13) · e2e 26/26 suites, 1 skipped, 131 passed · review clean |
 | P0-T11 | Dockerfile, `.dockerignore`, `.nvmrc`, `engines` for proxy-api | P0-T08 | done | api `84d1f34` · `docker build` ok (node:22-alpine) · image loads `dist/src/configure-app.js` + `health.controller.js` without env · prisma 7.3.0 · migrations + prisma.config.ts present · image removed · **ruling:** plan's two run checks were wrong (`require(app.module)` validates env at import → exit 1; `prisma --version | head -1` is a banner), replaced as noted in the plan · review clean (2 Minor by design: devDeps in runtime image, no scripts/ copy) |
-| P0-T12 | GitHub Actions workflow for proxy-api | P0-T01…T11 | todo | |
+| P0-T12 | GitHub Actions workflow for proxy-api | P0-T01…T11 | done (awaiting push) | api `44e09cf` · `.github/workflows/ci.yml` identical to the plan YAML · local CI sequence exit 0 (tsc 0, eslint 0, jest 187/187, e2e 26/26 + 1 skipped) · workflow run pending the owner's push |
 | P0-T13 | App dependency hygiene: drop `newArchEnabled`, `expo install --fix`, remove datetimepicker | — | todo | |
 | P0-T14 | App test runner: jest-expo + RNTL + `Button` render test + `npm test` | P0-T13 | todo | |
 | P0-T15 | `src/common/env.ts` fail-fast + consumers | P0-T14 | todo | |
