@@ -1,0 +1,14 @@
+# Taps the ScreenHeader back arrow (accessibilityLabel "Voltar"). Right after a push the first tap is
+# sometimes dropped, so when FROM (a text unique to the screen being left) is still visible once
+# animations settle, tap once more. Param: FROM.
+appId: com.anonymous.proxyapp
+---
+- waitForAnimationToEnd
+- tapOn: "Voltar"
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: ${FROM}
+    commands:
+      - tapOn: "Voltar"
+      - waitForAnimationToEnd

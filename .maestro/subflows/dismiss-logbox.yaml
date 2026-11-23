@@ -1,0 +1,13 @@
+# Dev builds show a LogBox warning banner (a11y text "!, Open debugger to view warnings.") over the
+# bottom of the screen (RN's "Sending `onAnimatedValueUpdate` with no listeners registered."). It is
+# not part of the app's look, so close it when shown. Its X has no label: tap by point (device A).
+# capture.yaml asserts it is gone before every screenshot.
+appId: com.anonymous.proxyapp
+---
+- runFlow:
+    when:
+      visible: "!, Open debugger.*"
+    commands:
+      - tapOn:
+          point: "96%,93%"
+      - waitForAnimationToEnd

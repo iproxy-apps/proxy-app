@@ -1,0 +1,8 @@
+# Takes one baseline screenshot: settle, close the dev-only LogBox banner if shown, prove it is gone,
+# then shoot. device.sh test copies the file to .dev-stack/shots/<NAME>.png. Param: NAME.
+appId: com.anonymous.proxyapp
+---
+- waitForAnimationToEnd
+- runFlow: dismiss-logbox.yaml
+- assertNotVisible: "!, Open debugger.*"
+- takeScreenshot: ${NAME}

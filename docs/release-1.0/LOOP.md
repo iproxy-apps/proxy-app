@@ -143,6 +143,7 @@ The owner validated the current screens. Until Phase 4 starts, the app's look is
 - **Baseline capture** (one-time, before P3-T01): dev build on the simulator, one screenshot per screen
   and per major state, stored in `docs/release-1.0/visual-baseline/<route>--<state>.png` with an index
   `visual-baseline/INDEX.md` (route, state, how to reach it). Committed by the owner. Phase 4 replaces it.
+  **Captured 2026-11-23** (L-T05): 15 screens on device A (iPhone 17 Pro, iOS 26.5), app source `e7ed12e`, flows `.maestro/flows/baseline/`.
 - **Rule for implementers**: a Phase 0–3 task may add or change layout only where its task text says
   so (e.g. `PaymentStatusBanner`, History tab, `QueryErrorCard`). New UI reuses an existing component or
   copies the structure of a named existing screen. No new colours, radii, type sizes, spacing scales,

@@ -1,0 +1,49 @@
+# Visual baseline (LOOP §8): PROXY shell, captured on device A (role comes from the seeded user).
+appId: com.anonymous.proxyapp
+name: baseline-proxy-shell
+tags: [baseline]
+---
+- runFlow:
+    file: ../../subflows/seed-and-sign-in.yaml
+    env:
+      EMAIL: proxy@baseline.test
+      PASSWORD: senha12345
+      USER_TYPE: PROXY
+      READY: '0'
+- assertVisible: "Tarefas, tab.*"
+- extendedWaitUntil:
+    visible: "Nenhuma tarefa por aqui"
+    timeout: 15000
+- runFlow:
+    file: ../../subflows/capture.yaml
+    env:
+      NAME: proxy-tabs-home--empty
+
+- tapOn: "Carteira, tab.*"
+- extendedWaitUntil:
+    visible: "Configurar recebimento"
+    timeout: 15000
+- runFlow:
+    file: ../../subflows/capture.yaml
+    env:
+      NAME: proxy-tabs-wallet--not-onboarded
+
+- tapOn: "Histórico, tab.*"
+- extendedWaitUntil:
+    visible: "Em construção"
+    timeout: 15000
+- runFlow:
+    file: ../../subflows/capture.yaml
+    env:
+      NAME: proxy-tabs-history--empty
+
+- tapOn: "Perfil, tab.*"
+# Data-bound: the seeded user's name and email.
+- extendedWaitUntil:
+    visible: "Proxy Baseline"
+    timeout: 15000
+- assertVisible: "proxy@baseline.test"
+- runFlow:
+    file: ../../subflows/capture.yaml
+    env:
+      NAME: proxy-tabs-profile--loaded

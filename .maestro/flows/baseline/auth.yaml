@@ -1,0 +1,62 @@
+# Visual baseline (LOOP §8): signed-out screens. device.sh test copies each shot to
+# .dev-stack/shots/<name>.png; the reference set lives in docs/release-1.0/visual-baseline/.
+appId: com.anonymous.proxyapp
+name: baseline-auth
+tags: [baseline, auth]
+---
+# clearState does not wipe the iOS keychain (SecureStore session); clear it to start signed out.
+- clearKeychain
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Resolva o que precisa.*"
+    timeout: 15000
+- runFlow:
+    file: ../../subflows/capture.yaml
+    env:
+      NAME: index--empty
+
+- tapOn: "Criar conta"
+- assertVisible: "Como você quer começar?"
+- runFlow:
+    file: ../../subflows/capture.yaml
+    env:
+      NAME: auth-choose-profile--empty
+
+# The option card is one a11y element (title + description), so match the title prefix.
+- tapOn: "Quero contratar serviços.*"
+- runFlow:
+    file: ../../subflows/capture.yaml
+    env:
+      NAME: auth-choose-profile--selected
+
+- tapOn: "Continuar"
+- assertVisible: "Criar conta"
+- assertVisible: "voce@email.com"
+- runFlow:
+    file: ../../subflows/capture.yaml
+    env:
+      NAME: auth-sign-up--empty
+
+- runFlow:
+    file: ../../subflows/tap-back.yaml
+    env:
+      FROM: "Cadastrando como"
+- assertVisible: "Como você quer começar?"
+- runFlow:
+    file: ../../subflows/tap-back.yaml
+    env:
+      FROM: "Como você quer começar?"
+- tapOn: "Já tenho conta"
+- assertVisible: "Bem-vindo de volta"
+- runFlow:
+    file: ../../subflows/capture.yaml
+    env:
+      NAME: auth-sign-in--empty
+
+- tapOn: "Esqueci a senha"
+- assertVisible: "Qual seu email?"
+- runFlow:
+    file: ../../subflows/capture.yaml
+    env:
+      NAME: auth-forgot-password--empty

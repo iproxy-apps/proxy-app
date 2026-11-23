@@ -46,5 +46,5 @@ keep out of `.dev-stack/shots/` before `down`. Restarting `metro` leaves `shots/
   `history`, `profile`).
 - Select by visible pt-BR text or placeholder. Add a `testID` only when a flow cannot otherwise
   select an element, and only inside the task that needs it.
-- Start with `launchApp: { clearState: true }` when the flow needs the signed-out splash
-  (it wipes SecureStore).
+- Start with `clearKeychain` + `launchApp: { clearState: true }` when the flow needs the signed-out
+  splash: on iOS `clearState` does not wipe the keychain, where SecureStore keeps the session.

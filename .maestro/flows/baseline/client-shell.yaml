@@ -1,0 +1,65 @@
+# Visual baseline (LOOP §8): CLIENT shell on device A.
+appId: com.anonymous.proxyapp
+name: baseline-client-shell
+tags: [baseline]
+---
+- runFlow:
+    file: ../../subflows/seed-and-sign-in.yaml
+    env:
+      EMAIL: cliente@baseline.test
+      PASSWORD: senha12345
+      USER_TYPE: CLIENT
+- extendedWaitUntil:
+    visible: "Nenhuma tarefa ativa"
+    timeout: 15000
+- runFlow:
+    file: ../../subflows/capture.yaml
+    env:
+      NAME: tabs-home--empty
+
+- tapOn: "Histórico, tab.*"
+- extendedWaitUntil:
+    visible: "Em construção"
+    timeout: 15000
+- runFlow:
+    file: ../../subflows/capture.yaml
+    env:
+      NAME: tabs-history--empty
+
+- tapOn: "Perfil, tab.*"
+# Data-bound: seeded name/email, and the card row's hint once the card query resolves.
+- extendedWaitUntil:
+    visible: "Cliente Baseline"
+    timeout: 15000
+- assertVisible: "cliente@baseline.test"
+- extendedWaitUntil:
+    visible: "Cartão.*Adicionar"
+    timeout: 15000
+- runFlow:
+    file: ../../subflows/capture.yaml
+    env:
+      NAME: tabs-profile--loaded
+
+# The row is one a11y element ("Cartão, Adicionar"), so match the label prefix.
+- tapOn: "Cartão.*"
+- extendedWaitUntil:
+    visible: "Nenhum cartão salvo"
+    timeout: 15000
+- runFlow:
+    file: ../../subflows/capture.yaml
+    env:
+      NAME: cards--empty
+
+- runFlow:
+    file: ../../subflows/tap-back.yaml
+    env:
+      FROM: "Nenhum cartão salvo"
+- tapOn: "Início, tab.*"
+# The CTA card is one a11y element labelled "Criar nova tarefa" (its visible "Nova tarefa" text is
+# not exposed separately).
+- tapOn: "Criar nova tarefa"
+- assertVisible: "Detalhes da tarefa"
+- runFlow:
+    file: ../../subflows/capture.yaml
+    env:
+      NAME: tasks-create--step1-empty

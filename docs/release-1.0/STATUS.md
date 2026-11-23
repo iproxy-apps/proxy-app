@@ -9,17 +9,17 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `L-T05` |
+| task | `P0-T01` |
 | step | pick |
 | files touched | — |
-| last gate | app L-T04: `npx tsc --noEmit && npx eslint .` exit 0 (2026-11-23) |
+| last gate | app @L-T05 commit: tsc ✔ eslint ✔ · maestro baseline 3/3 COMPLETED (2026-11-23) |
 | waiting on owner | — |
-| next task | `P0-T01` |
+| next task | `P0-T02` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity, D24 static-site origin,
   D26 developer account type (Play closed test clock); plus
   confirmation of every `DEFAULT (confirm)` row (D1, D3, D5–D9, D12, D14, D16, D18, D25).
-- **Phase state:** L in_progress · P0 todo · P1 todo · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
+- **Phase state:** L done · P0 todo · P1 todo · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)
 
@@ -36,7 +36,7 @@ phases" section because they are briefs/checklists, not task tables.
 | L-T02 | `TestHooksModule`: `/__test/reset`, `/__test/seed-user`, `/__test/mark-account-ready` behind `LOOP_TEST_HOOKS=1` + local-DB guard | — | done | api `1267e60` · jest 158/158 · e2e 109/110 · 2 review rounds (SkipThrottle default+auth) |
 | L-T03 | `proxy-api/scripts/dev-stack.sh up/down/status/logs` (compose Postgres, api with hooks, `stripe listen`, pid tracking) | L-T02 | done | api `b84a8ff` · up/status/down + exit-1/exit-2 paths verified live · 1 review round (pgid cleanup, pid-reuse guard, non-destructive status probe, log tails) |
 | L-T04 | Java + Maestro install, `.maestro/` scaffold, `proxy-app/scripts/device.sh`, first smoke flow | — | done | app L-T04 commit · maestro welcome-to-sign-in ✔ on A and B · Maestro 2.12.1 · tsc+eslint 0 · splash heading asserted by prefix regex (one a11y element with the accent line) |
-| L-T05 | Visual baseline: 15 screenshots on device A (iOS 26.5) + `visual-baseline/INDEX.md` + baseline flows | L-T02, L-T03, L-T04 | todo | |
+| L-T05 | Visual baseline: 15 screenshots on device A (iOS 26.5) + `visual-baseline/INDEX.md` + baseline flows | L-T02, L-T03, L-T04 | done | app L-T05 commit · 15 PNGs · baseline flows COMPLETED on A |
 
 Tasks: 5
 
