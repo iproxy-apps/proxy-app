@@ -20,6 +20,11 @@
 >   change in proxy-app as `chore(docs): <task id> status`.
 > - Ownership checks in both scripts compare the recorded command name **and** start time
 >   (`ps -o lstart=`) before signalling a pid.
+> - Test hooks and Stripe (final review): `seed-user` creates or finds a **real** Stripe customer
+>   through `StripeService` (no `cus_test_seed`); `mark-account-ready` takes `stripeAccountId` as
+>   optional, writes it only when given, and returns 400 `ACCOUNT_ID_REQUIRED` when the user has no
+>   account id (no `acct_test_ready` default); `seed-user` with `stripeAccountReady: true` requires
+>   `stripeAccountId`. The L-T02 task text below still shows the old values.
 
 **Goal:** stand up everything `../LOOP.md` assumes exists so that the first real task (`P0-T01`) can
 run through the full pick → build → review → gate → device → record iteration.
@@ -400,7 +405,7 @@ Testcontainers; bash; Expo SDK 57 dev client (`npx expo run:ios`), Maestro (need
   ```
   (`clearState` wipes SecureStore so the splash renders instead of redirecting to Home.)
 - `README.md`: prerequisites, the device map, how to run one flow / a tag (`device.sh test A
-  .maestro/flows --include-tags smoke`), where screenshots land, the rule "select by visible pt-BR
+  .maestro --include-tags smoke`), where screenshots land, the rule "select by visible pt-BR
   text; add `testID` only when a flow cannot otherwise select, and only inside the task that needs it".
 
 - [ ] **Step 1: Install the toolchain** (two commands above). Expected: both version checks print.
@@ -509,7 +514,7 @@ Testcontainers; bash; Expo SDK 57 dev client (`npx expo run:ios`), Maestro (need
 - `STATUS.md` has the `## Now` table and the Phase L table all `done`.
 - `dev-stack.sh up` → api 401 probe + `POST /__test/seed-user` with `{}` → 400 (hooks on; 404 = off);
   `down` leaves only the compose container.
-- `device.sh test A .maestro/flows --include-tags smoke` passes; `docs/release-1.0/visual-baseline/`
+- `device.sh test A .maestro --include-tags smoke` passes; `docs/release-1.0/visual-baseline/`
   holds 15 PNGs + `INDEX.md`.
 - Not in this phase (added when needed): `scripts/two-device.sh` (end of Phase 3), Maestro flows for
   cards/tasks/wallet (land with their Phase 3 tasks), `LOOP_TEST_HOOKS` rejection in the production
