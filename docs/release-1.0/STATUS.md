@@ -9,13 +9,13 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P0-T02` |
-| step | pick |
+| task | `P0-T03` |
+| step | card |
 | files touched | — |
 | last gate | app @L-T05 commit: tsc ✔ eslint ✔ · maestro baseline 3/3 COMPLETED (2026-11-23) |
-| last gate (api) | api @d97b18b (P0-T01, orchestrator-run 2026-11-23): tsc 0 · eslint not installed (→ P0-T09, skip until then) · jest 158/158 · e2e 117/118 (pre-existing red delete-account → P0-T10) — known-red baseline: a gate is green when it matches this |
+| last gate (api) | api @67ade1e (P0-T02, orchestrator-run 2026-11-23): type-check (strict) 0 · tsc 0 · eslint not installed (→ P0-T09, skip until then) · jest 158/158 · e2e 117/118 (pre-existing red delete-account → P0-T10) — known-red baseline: a gate is green when it matches this |
 | waiting on owner | — |
-| next task | `P0-T03` |
+| next task | `P0-T04` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity, D24 static-site origin,
   D26 developer account type (Play closed test clock); plus
@@ -26,6 +26,7 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T02 done (api `67ade1e`); scope widened by ruling (Decimal fallout in two use-cases, test factories, `@types/pg`). |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | Owner re-ran the baseline (3/3 passed) after enabling LuLu Allow Simulator Apps; P0-T01 done (api `d97b18b`, implementer + blind reviewer, 1 fix round). |
 | 2026-11-23 | Claude, MacBook Pro M5 | Phase L closed: final-review fix wave (api `96362fe`: real Stripe customer on seed, optional account id, lstart ownership guard; app: two-commit rule, known-red api gate baseline, plan supersessions, lstart guard in `device.sh`). |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | Owner set targets (1 MVP-functional → 2 visual → 3 stores), settled D28/D30/D31, approved `LOOP.md` (approach B). Phase L plan written. ai-memory consolidated into one project (`default/iproxy-apps-proxy-app`, marker in both repos). No source code changed. |
@@ -48,7 +49,7 @@ Tasks: 5
 | ID | Title | Depends on | State | Notes |
 |---|---|---|---|---|
 | P0-T01 | Test infra hygiene: factory claim, dotenv override, untrack `.env.test`, TRUNCATE guard | — | done | api `d97b18b` · tsc 0 · jest 158/158 · e2e 117/118 (24 suites; +3 guard cases; red = delete-account) · `.env.test` untracked, still on disk · review: 1 Minor fixed (quotes on `got "<unset>"`) |
-| P0-T02 | Strict typing: declare `Decimal`/`DocumentType`, `noImplicitAny`, `--skipLibCheck false` gate | P0-T01 | todo | |
+| P0-T02 | Strict typing: declare `Decimal`/`DocumentType`, `noImplicitAny`, `--skipLibCheck false` gate | P0-T01 | done | api `67ade1e` · strict tsc 15→0 · jest 158/158 · e2e 117/118 (red = delete-account) · **ruling:** plan claim "fallout 0" was false — real `Decimal` exposed `number` arithmetic on `offeredPrice` in start-task/validate-task; fixed behaviour-preserving with one `Number(taskDetails.offeredPrice)` per use-case, `new Prisma.Decimal()` in test factories, `@types/pg` dev dep. Real Decimal money math stays Phase 1 (`src/common/money.ts`) |
 | P0-T03 | Global `PrismaModule`, one client, `PaymentsModule` exports | — | todo | |
 | P0-T04 | `configureApp`: CORS, filter, shutdown hooks, `TRUST_PROXY`, Logger in bootstrap | P0-T03 | todo | |
 | P0-T05 | PT error contract: Zod pipe, Throttler/Unauthorized/413/404 and Prisma mapping in the filter | — | todo | |

@@ -196,6 +196,15 @@ added), SPEC.md §3.4 (throttle table), proxy-api `CLAUDE.md` (rate-limiting lin
 - [ ] **Step 5: Verify the repo gate** — `npx jest` → all suites pass (ts-jest picks up `noImplicitAny`).
 - [ ] **Step 6: Mark done in ../STATUS.md; commit message** `chore(types): P0-T02 declare Decimal/DocumentType, noImplicitAny, skipLibCheck gate`
 
+> **Superseded by implementation (2026-11-23):** "fallout today is 0" was false. With `Decimal` a
+> real type, `start-task.service.ts` and `validate-task.service.ts` failed (`offeredPrice * 100`,
+> fee formulas), plus test factories/specs building Decimal fields from number literals, plus
+> `@prisma/adapter-pg` needing `@types/pg` under `--skipLibCheck false`. Shipped as: one
+> `const offeredPrice = Number(taskDetails.offeredPrice)` per use-case before the first arithmetic use
+> (formulas unchanged), `new Prisma.Decimal(<value>)` in `tasks/test-utils/task.factory.ts` and the
+> three specs, `@types/pg` dev dependency. Phase 1 (`src/common/money.ts`) replaces the `Number()`
+> boundary with Decimal math.
+
 ---
 
 ### Task P0-T03: Global `PrismaModule`, one client, `PaymentsModule` exports (BE-36, REL-16)
