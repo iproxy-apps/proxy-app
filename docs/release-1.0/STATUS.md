@@ -9,13 +9,13 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P0-T06` |
+| task | `P0-T07` |
 | step | build |
-| files touched | card `cards/P0-T06.md` written (rulings: skipIf also on LOOP_TEST_HOOKS=1; Phase L hooks drop the auth throttler name); api tree clean at `6a75348` |
+| files touched | card `cards/P0-T07.md` written; api tree clean at `e4c7499` |
 | last gate | app @L-T05 commit: tsc ✔ eslint ✔ · maestro baseline 3/3 COMPLETED (2026-11-23) |
-| last gate (api) | api @6a75348 (P0-T05, orchestrator-run 2026-11-23): type-check (strict) 0 · eslint not installed (→ P0-T09, skip until then) · jest 185/185 (43 suites) · e2e 118/119 (pre-existing red delete-account → P0-T10) — known-red baseline: a gate is green when it matches this |
+| last gate (api) | api @e4c7499 (P0-T06, orchestrator-run 2026-11-23): type-check (strict) 0 · eslint not installed (→ P0-T09, skip until then) · jest 185/185 (43 suites) · e2e 126/127 (pre-existing red delete-account → P0-T10) — known-red baseline: a gate is green when it matches this |
 | waiting on owner | — |
-| next task | `P0-T07` |
+| next task | `P0-T08` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity, D24 static-site origin,
   D26 developer account type (Play closed test clock); plus
@@ -26,6 +26,7 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T06 done (api `e4c7499`): single default throttler, 5/min on 4 auth routes, loop exemption. P0-T07 card written. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T05 done (api `6a75348`): Portuguese error contract (9 codes), Zod pipe, filter mapping, SPEC §3.3. P0-T06 card written. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T04 done (api `64ab10f`): configureApp, TRUST_PROXY, Logger. P0-T05 card written. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T03 done (api `c22ae76`): one global PrismaModule, 8 modules de-duplicated, PaymentsModule exports. |
@@ -56,7 +57,7 @@ Tasks: 5
 | P0-T03 | Global `PrismaModule`, one client, `PaymentsModule` exports | — | done | api `c22ae76` · prisma.module.spec 11/11 · jest 169/169 · e2e 117/118 (red = delete-account) · ruling: `TestHooksModule` (Phase L) stripped of its own `PrismaService` too, added to the spec table |
 | P0-T04 | `configureApp`: CORS, filter, shutdown hooks, `TRUST_PROXY`, Logger in bootstrap | P0-T03 | done | api `64ab10f` · configure-app.spec 3/3 · jest 172/172 · e2e 117/118 (red = delete-account) · no `console.log` in src · review clean |
 | P0-T05 | PT error contract: Zod pipe, Throttler/Unauthorized/413/404 and Prisma mapping in the filter | — | done | api `6a75348` · filter+pipe specs 13/13 · jest 185/185 · e2e 118/119 (+413 case; red = delete-account) · SPEC §3.3 +9 rows · review clean (2 Minor, no action) |
-| P0-T06 | Throttler: one default 100/min, 5/min on the four public auth routes, trust-proxy behaviour | P0-T04, P0-T05 | todo | loop needs `/auth/session` relaxed or exempt for the loop, every Maestro flow signs in through the UI; `/stripe/webhook` must skip the `auth` throttler |
+| P0-T06 | Throttler: one default 100/min, 5/min on the four public auth routes, trust-proxy behaviour | P0-T04, P0-T05 | done | api `e4c7499` · throttle.e2e 8/8 · jest 185/185 · e2e 126/127 (red = delete-account) · **ruling:** `skipIf` also true when `LOOP_TEST_HOOKS=1` (device loop signs in many times from one IP); Phase L hook controllers back to bare `@SkipThrottle()`; SPEC §3.4 + CLAUDE.md updated · review clean (1 cosmetic Minor) |
 | P0-T07 | `z.uuid()` on every `:id` param and `taskId` body | P0-T05 | todo | |
 | P0-T08 | `GET /health` (public, unthrottled, DB ping) | P0-T03, P0-T05 | todo | |
 | P0-T09 | ESLint 9 flat config for proxy-api, `lint` without `--fix` | — | todo | |

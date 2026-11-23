@@ -237,8 +237,8 @@ Detalhes de request/response em cada tela em [§8](#8-especificação-por-tela).
 | ------ | ----------------------------- | ---- | -------- | ---------------------------------------- |
 | POST   | `/auth/create`                | ❌    | 5/min    | Cadastro                                 |
 | POST   | `/auth/session`               | ❌    | 5/min    | Login                                    |
-| POST   | `/auth/forgot-password`       | ❌    | 100/min  | Solicitar código de reset                |
-| POST   | `/auth/verify-reset-code`     | ❌    | 100/min  | Validar código antes do reset            |
+| POST   | `/auth/forgot-password`       | ❌    | 5/min    | Solicitar código de reset                |
+| POST   | `/auth/verify-reset-code`     | ❌    | 5/min    | Validar código antes do reset            |
 | POST   | `/auth/reset-password`        | ❌    | 100/min  | Redefinir senha                          |
 | POST   | `/auth/update-profile`        | ✅    | 100/min  | Atualizar perfil (devolve novo JWT)      |
 | POST   | `/auth/merchant-account`      | ✅    | 100/min  | Criar/obter link Stripe Connect (Proxy)  |
@@ -257,7 +257,7 @@ Detalhes de request/response em cada tela em [§8](#8-especificação-por-tela).
 | GET    | `/card/fetch`                 | ✅    | 100/min  | Buscar cartão salvo                      |
 | DELETE | `/card/:id`                   | ✅    | 100/min  | Remover cartão (detach Stripe + soft delete) |
 
-**Rate limiting**: 100 req/min default, 5 req/min em `/auth/session` e `/auth/create`. Webhooks são `@SkipThrottle()`. Em 429, mostrar toast pedindo para aguardar.
+**Rate limiting**: 100 req/min default, 5 req/min em `/auth/session`, `/auth/create`, `/auth/forgot-password` e `/auth/verify-reset-code`. Webhooks são `@SkipThrottle()`. Em 429, mostrar toast pedindo para aguardar.
 
 > **Gaps anteriores — resolvidos pelo backend** (commit `8bc3c5e`, 13/05/2026):
 > - ✅ `GET /tasks/:id` agora existe — usar em todas as telas de detalhe (em vez de cachear de `/tasks/fetch`). Response inclui `payment` como objeto embarcado, útil para tratar fluxo 3DS.
