@@ -9,24 +9,25 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P1-T01` |
+| task | `P1-T02` |
 | step | pick |
 | files touched | — ; api Phase 0 complete at `44e09cf` |
 | last gate | app @ec22198 (Phase 0 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · `expo install --check` ✔ · maestro on rebuilt app: A 4/4 flows (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.011% (forgot-password caret) |
-| last gate (api) | api @e0f01f6 (Phase 0 close, orchestrator-run 2026-11-23; jest also green with `.env` absent): type-check (strict) 0 · eslint 0/0 on 196 files · jest 187/187 (44 suites) · e2e 26/26 suites, 1 skipped (parked delete-account → Phase 2 D13), 131 passed — **no known reds**: a gate is green only when every step exits 0 |
+| last gate (api) | api @67b25a4 (P1-T01, 2026-11-23): type-check 0 · eslint 0 · jest 198/198 (45 suites, money.ts 100 % cov) · e2e not re-run (pure module, nothing reaches HTTP); last full e2e 26/26 @e0f01f6 · CI on `release-1.0` green @d114035 |
 | waiting on owner | — (decision round closed 2026-11-23; D23/D26 deferred by the owner; Google Places key (D16) needed before the P3 address task) |
-| next task | `P1-T02` |
+| next task | `P1-T03` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity and D26 developer account type
   (both deferred by the owner to "when the version is nearly final"); Google Cloud Places API key for D16
   (needed by the Phase 3 address task, goes in the app `.env` only).
 - **Owner decision round closed (2026-11-23):** every `DEFAULT (confirm)` row is now SETTLED in `DECISIONS.md`; D1 (80/20, min R$ 20), D3 (charge at start, automatic capture, transfer at validate), D9 (30 m access + 60 d rotating refresh token), D12 (no documents stored at all), D14 (edit profile name/phone IN 1.0), D16 (Google Places autocomplete + served-city whitelist) changed; D23/D26 deferred by the owner until the app is nearly final; D24 Cloudflare Pages or Vercel; D25 Resend preferred. Plans for phases 1–3 carry an `## Amendments (2026-11-23 …)` section with the rewritten tasks and rulings.
-- **Phase state:** L done · P0 done (CI green on GitHub) · P1 todo · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
+- **Phase state:** L done · P0 done (CI green on GitHub) · P1 in progress (T01 done) · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | Phase 1 plan amended to the new D1/D3 (claim-first ruling folded back into D3/PLAN.md). P1-T01 done (api `67b25a4`), review clean, gate green. Phase 2/3 plan amendment still running. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | Owner's manual check of Phase 0 run by Claude instead (D28): `DEV_STACK_TEST_HOOKS=0 dev-stack.sh up` → `/health` 200, 6th `/auth/session` 429 pt-BR. Owner asked Claude to run such checks itself from now on. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | **Phase 0 closed.** Boundary regression green on rebuilt A/B, visual freeze held, final review fix wave (api `e0f01f6`, app `ec22198`). Handoff not written (ai-memory offline). Next: P1-T01. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | Owner allowed pushes (D30). `release-1.0` pushed in both repos; CI triggers widened to `release-1.0` (Ruling: branch trigger instead of a PR to `main`, because the loop must not touch `main`); both CI runs green. Decision round closed, plans being amended. |
@@ -91,26 +92,26 @@ Tasks: 16
 
 ## Phase 1 — Money core (api) — `plans/phase-1-money-core.md`
 
-| ID | Title | Depends on | State | Notes |
+| ID | Title (synced with the amended plan index, 2026-11-23) | Depends on | State | Notes |
 |---|---|---|---|---|
-| P1-T01 | `src/common/money.ts` — fee model D1 in `Prisma.Decimal` | — | todo | |
-| P1-T02 | Prisma migration `phase1_money_core` (fee columns, payment bookkeeping, `payoutIssue`, partial unique active card) | — | todo | |
-| P1-T03 | StripeService: SetupIntent, off-session hold/capture/cancel, idempotent refund/transfer, two webhook secrets; env; test doubles | — | todo | |
-| P1-T04 | Repositories: `TasksRepository.transition/claimTask/releaseClaim/recordTransfer`, `PaymentsRepository` latest-by-task/by-id, `PaymentsModule` export | P1-T02 | todo | |
-| P1-T05 | Cards via SetupIntent: `POST /card/setup-intent`, `POST /card/create { paymentMethodId }`, replace-in-transaction, detach previous | P1-T02, P1-T03 | todo | |
-| P1-T06 | `POST /tasks/create`: strict Zod bounds, CLIENT-only, card before insert, fees persisted in one transaction, shared `taskSelect` | P1-T01, P1-T04, P1-T05 | todo | |
-| P1-T07 | `GET /tasks/price-preview?offeredPrice=` | P1-T01 | todo | |
-| P1-T08 | `POST /tasks/start`: hold → CAS claim → capture; `requires_action` removed | P1-T03, P1-T04, P1-T06 | todo | |
-| P1-T09 | `ProofStorage` port + `LocalDiskProofStorage` + `S3ProofStorage` + `StorageModule` + env | — | todo | |
-| P1-T10 | Proof image pipeline: magic bytes (`file-type`), HEIC→JPEG (`heic-convert`), normalise (`sharp`) | — | todo | |
-| P1-T11 | `POST /tasks/finish` (proof mandatory, disputed block, CAS) + `GET /tasks/:id/proof` streams from storage | P1-T04, P1-T09, P1-T10 | todo | |
-| P1-T12 | `POST /tasks/validate`: payment-checked, CAS first, `source_transaction` transfer, one transaction for transferId/counter/wallet | P1-T01, P1-T03, P1-T04 | todo | |
-| P1-T13 | `POST /tasks/cancel`: CAS first, branch on latest payment, accept refund `pending`, full refund | P1-T03, P1-T04 | todo | |
-| P1-T14 | Webhooks I: dedupe-first dispatch, `payment_intent.succeeded` stores `chargeId`, guarded `payment_failed`, `charge.refunded` keeps `refundId` | P1-T02, P1-T03, P1-T04 | todo | |
-| P1-T15 | Webhooks II: `payout.failed` → `payoutIssue`, dispute persists `disputeId`, `account.updated` guard + clears flag; dead Stripe methods removed | P1-T02, P1-T03 | todo | |
-| P1-T16 | Daily auto-release job (`@nestjs/schedule`) | P1-T12 | todo | |
-| P1-T17 | Rewrite `proxy-api/CLAUDE.md` sections (Stripe Connect, webhooks, 3DS, Database models, routes, env) | P1-T01…T16 | todo | |
-| P1-T18 | App wire types follow the new contract (types only + one dead branch) | P1-T05, P1-T07, P1-T08 | todo | |
+| P1-T01 | `src/common/money.ts` — fee model D1 (client pays `offeredPrice`, 20/80 split) in `Prisma.Decimal` | — | done | api `67b25a4` · `src/common/money.ts` + spec (11 tests, 100 % cov) · gate: type-check 0 · eslint 0 · jest 198/198 (45 suites) · blind review: spec ✅, quality approved, 0 Critical/Important · note for P1-T06: Zod must cap `offeredPrice` at 2 dp (`multipleOf(0.01)`) since `money.ts` does not round the input |
+| P1-T02 | Prisma migration `phase1_money_core` (fee columns, payment bookkeeping, `payoutIssue`, partial unique active card) | — | todo |  |
+| P1-T03 | StripeService: SetupIntent, off-session create+confirm PaymentIntent (automatic capture), idempotent refund/transfer, two webhook secrets; env; test doubles | — | todo |  |
+| P1-T04 | Repositories: `TasksRepository.transition/claimTask/releaseClaim/recordTransfer`, `PaymentsRepository` latest-by-task/by-intent/`recordSucceededCharge`, `PaymentsModule` export | P1-T02 | todo |  |
+| P1-T05 | Cards via SetupIntent: `POST /card/setup-intent`, `POST /card/create { paymentMethodId }`, replace-in-transaction, detach previous | P1-T02, P1-T03 | todo |  |
+| P1-T06 | `POST /tasks/create`: strict Zod bounds (20–10 000), CLIENT-only, card before insert, fees persisted in one transaction, shared `taskSelect` | P1-T01, P1-T04, P1-T05 | todo |  |
+| P1-T07 | `GET /tasks/price-preview?offeredPrice=` | P1-T01 | todo |  |
+| P1-T08 | `POST /tasks/start`: CAS claim → charge (automatic capture) → payment row; definite failure releases + notifies client; `requires_action` removed | P1-T03, P1-T04, P1-T06 | todo |  |
+| P1-T09 | `ProofStorage` port + `LocalDiskProofStorage` + `S3ProofStorage` + `StorageModule` + env | — | todo |  |
+| P1-T10 | Proof image pipeline: magic bytes (`file-type`), HEIC→JPEG (`heic-convert`), normalise (`sharp`) | — | todo |  |
+| P1-T11 | `POST /tasks/finish` (proof mandatory, disputed block, CAS) + `GET /tasks/:id/proof` streams from storage | P1-T04, P1-T09, P1-T10 | todo |  |
+| P1-T12 | `POST /tasks/validate`: payment-checked, CAS first, `source_transaction` transfer of `proxyEarnings` (80 %), one transaction for transferId/counter/wallet | P1-T01, P1-T03, P1-T04 | todo |  |
+| P1-T13 | `POST /tasks/cancel`: disputed block, CAS first, full refund of a succeeded charge, accept refund `pending` | P1-T03, P1-T04 | todo |  |
+| P1-T14 | Webhooks I: dedupe-first dispatch, idempotent `payment_intent.succeeded` row write (+ refund on a canceled task), guarded `payment_failed` (+ open-claim release), `charge.refunded` keeps `refundId` | P1-T02, P1-T03, P1-T04 | todo |  |
+| P1-T15 | Webhooks II: `payout.failed` → `payoutIssue`, dispute persists `disputeId`, `account.updated` guard + clears flag; dead Stripe methods removed | P1-T02, P1-T03 | todo |  |
+| P1-T16 | Daily auto-release job (`@nestjs/schedule`) | P1-T12 | todo |  |
+| P1-T17 | Rewrite `proxy-api/CLAUDE.md` sections (Stripe Connect, webhooks, card authentication, Database models, routes, env) | P1-T01…T16 | todo |  |
+| P1-T18 | App wire types follow the new contract (types only + one dead branch) | P1-T05, P1-T07, P1-T08 | todo |  |
 
 Tasks: 18
 
