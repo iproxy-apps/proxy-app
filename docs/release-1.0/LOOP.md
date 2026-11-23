@@ -213,6 +213,9 @@ and collects screenshots into `scratch/runs/<timestamp>/`.
   localhost); reused across runs.
 - Nothing outside the two Proxy repos is read for configuration, started, or modified. The compose
   container is named `proxy` so a stray one is identifiable.
+- Host firewall (LuLu): simulator processes are host processes to it. `Allow Simulator Apps` must be
+  ON on the loop machine, or each simulator daemon and each fresh app install prompts and holds its
+  connection until answered (see STATUS "Known machine/environment facts").
 
 ## 11. Session protocol (replaces START-HERE "Session protocol")
 

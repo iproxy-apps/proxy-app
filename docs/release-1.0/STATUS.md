@@ -196,6 +196,10 @@ Tasks: 18
   Xcode 27.2 ships `DeviceHub.app`, not `Simulator.app`. `expo run:ios` builds into
   `~/Library/Developer/Xcode/DerivedData/proxyapp-*`, not `ios/build/` (device.sh `install` checks both).
   Maestro 2.12 writes `takeScreenshot` under its run output dir; `device.sh test` copies it to `.dev-stack/shots/<name>.png`.
+  LuLu (firewall, 4.5.1): **Allow Simulator Apps** must be ON (Settings → Rules; enabled 2026-11-23).
+  Off, every iOS-simulator daemon and each new install of `proxyapp.app` (new bundle path per build)
+  raises its own alert, and the held connections slow or time out Maestro flows. `Allow localhost`
+  is already on, so 3333/8081 never prompt; node, java, stripe, Docker and xcodebuild have rules.
 
 - Hackintosh (2026-11-08): Node 26.13, Docker Desktop installed (start it before e2e), Stripe CLI not
   installed, no `eas`/`wrangler`/`aws` CLIs, Lovable prototype only on the MacBook.
