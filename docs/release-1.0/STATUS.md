@@ -9,13 +9,13 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P0-T16` |
-| step | card |
-| files touched | card `cards/P0-T16.md` written (dispatch waits for the simulator A rebuild to finish, `npm ci` in its gate would wipe node_modules); api Phase 0 complete at `44e09cf` |
-| last gate | app @P0-T15 commit: `npm test` 10/10 · tsc 0 · eslint 0 · `process.env` only in `src/common/env.ts` · maestro baseline 3/3 (owner run, 2026-11-23, pre-P0-T13 build; rebuild in progress) |
+| task | Phase 0 boundary (LOOP §5.3) |
+| step | device (full Maestro regression on A + smoke on B with the rebuilt app), then final whole-branch review |
+| files touched | none (all 16 Phase 0 tasks committed); api Phase 0 complete at `44e09cf` |
+| last gate | app @P0-T16 commit: `npm ci` ✔ · tsc 0 · eslint 0 · `npm test` 10/10 · `expo install --check` ✔ · maestro: pending boundary run on the rebuilt app (A rebuilt + B installed 2026-11-23) |
 | last gate (api) | api @44e09cf (P0-T12, orchestrator-run 2026-11-23): type-check (strict) 0 · eslint 0/0 on 196 files · jest 187/187 (44 suites) · e2e 26/26 suites, 1 skipped (parked delete-account → Phase 2 D13), 131 passed — **no known reds**: a gate is green only when every step exits 0 |
 | waiting on owner | — |
-| next task | Phase 0 boundary (§5.3): rebuild B, full Maestro, STATUS phase row, handoff |
+| next task | `P1-T01` after the boundary closes |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity, D24 static-site origin,
   D26 developer account type (Play closed test clock); plus
@@ -26,6 +26,7 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T16 done (app CI, awaiting push). All 16 Phase 0 tasks committed; boundary regression starts. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T15 done (fail-fast env module). Simulator A rebuild started after P0-T13 deps (ios/ regenerated: stale Podfile.lock). P0-T16 card written. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T14 done (app jest runner; 4 plan defects ruled). P0-T15 card written. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T13 done (app deps hygiene; simulator build now stale). P0-T14 card written. |
@@ -76,7 +77,7 @@ Tasks: 5
 | P0-T13 | App dependency hygiene: drop `newArchEnabled`, `expo install --fix`, remove datetimepicker | — | done | this commit · `expo install --check` up to date · 8 expo pkgs bumped (expo ~57.0.33, router ~57.0.32…) · datetimepicker gone · tsc 0 · eslint 0 · review clean (Minor: transitive majors glob/xcode moved) · **simulator build is stale: rebuild A and B before the next Maestro run** |
 | P0-T14 | App test runner: jest-expo + RNTL + `Button` render test + `npm test` | P0-T13 | done | this commit · `npm test` 3/3 · tsc 0 · eslint 0 · **4 rulings** (plan defects): +`@react-native/jest-preset@0.86.3` and +`test-renderer@^1.3.1` (peers not auto-installed under legacy-peer-deps), RNTL 14 async API (`await render/fireEvent`), reanimated `setUpTests()` throws → mock fallback, TS 6 needs `"types": ["jest"]` in tsconfig · review clean (Minor: version spec forms) |
 | P0-T15 | `src/common/env.ts` fail-fast + consumers | P0-T14 | done | this commit · read-env.test 7/7 · `npm test` 10/10 · tsc 0 · eslint 0 · 3 consumers migrated · review clean (4 Minor accepted: single-failure message lists only the failing var; extra CLAUDE.md sentence) |
-| P0-T16 | App `.nvmrc`, `engines`, GitHub Actions workflow | P0-T13, P0-T14, P0-T15 | todo | |
+| P0-T16 | App `.nvmrc`, `engines`, GitHub Actions workflow | P0-T13, P0-T14, P0-T15 | done (awaiting push) | this commit · ci.yml identical to the plan YAML · local CI sequence exit 0 (npm ci, tsc 0, eslint 0, jest 10/10) · workflow run pending the owner's push |
 
 Tasks: 16
 
