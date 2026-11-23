@@ -48,3 +48,14 @@ keep out of `.dev-stack/shots/` before `down`. Restarting `metro` leaves `shots/
   select an element, and only inside the task that needs it.
 - Start with `clearKeychain` + `launchApp: { clearState: true }` when the flow needs the signed-out
   splash: on iOS `clearState` does not wipe the keychain, where SecureStore keeps the session.
+
+## Visual freeze check
+
+After a run, compare the screenshots with the baseline before `device.sh down` removes them:
+
+```
+node scripts/visual-diff.js docs/release-1.0/visual-baseline .dev-stack/shots
+```
+
+It prints the percentage of changed pixels per screen (status bar rows ignored). Anything above
+~0.1% that is not a blinking caret is a visual change and must be justified or reverted (LOOP.md §8).
