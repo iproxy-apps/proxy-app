@@ -9,12 +9,12 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `L-T03` |
+| task | `L-T04` |
 | step | build |
 | files touched | — |
 | last gate | api @1267e60: tsc 1 pre-existing error (user.factory.ts:64, P0-T02) · jest 158/158 · e2e 109/110 (pre-existing red delete-account) (2026-11-23) |
 | waiting on owner | — |
-| next task | `L-T04` |
+| next task | `L-T05` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity, D24 static-site origin,
   D26 developer account type (Play closed test clock); plus
@@ -34,8 +34,8 @@ phases" section because they are briefs/checklists, not task tables.
 |---|---|---|---|---|
 | L-T01 | Branch `release-1.0` + board plumbing (`## Now` table, task cards, LOOP/DECISIONS/marker commit) | — | done | |
 | L-T02 | `TestHooksModule`: `/__test/reset`, `/__test/seed-user`, `/__test/mark-account-ready` behind `LOOP_TEST_HOOKS=1` + local-DB guard | — | done | api `1267e60` · jest 158/158 · e2e 109/110 · 2 review rounds (SkipThrottle default+auth) |
-| L-T03 | `proxy-api/scripts/dev-stack.sh up/down/status/logs` (compose Postgres, api with hooks, `stripe listen`, pid tracking) | L-T02 | in_progress | |
-| L-T04 | Java + Maestro install, `.maestro/` scaffold, `proxy-app/scripts/device.sh`, first smoke flow | — | todo | |
+| L-T03 | `proxy-api/scripts/dev-stack.sh up/down/status/logs` (compose Postgres, api with hooks, `stripe listen`, pid tracking) | L-T02 | done | api `b84a8ff` · up/status/down + exit-1/exit-2 paths verified live · 1 review round (pgid cleanup, pid-reuse guard, non-destructive status probe, log tails) |
+| L-T04 | Java + Maestro install, `.maestro/` scaffold, `proxy-app/scripts/device.sh`, first smoke flow | — | in_progress | |
 | L-T05 | Visual baseline: 15 screenshots on device A (iOS 26.5) + `visual-baseline/INDEX.md` + baseline flows | L-T02, L-T03, L-T04 | todo | |
 
 Tasks: 5
