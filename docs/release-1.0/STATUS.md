@@ -9,24 +9,25 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P1-T07` |
-| step | build (card `cards/P1-T07.md`, implementer dispatched) |
+| task | `P1-T08` |
+| step | build (card `cards/P1-T08.md`, implementer dispatched) |
 | files touched | — ; api Phase 0 complete at `44e09cf` |
 | last gate | app @ec22198 (Phase 0 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · `expo install --check` ✔ · maestro on rebuilt app: A 4/4 flows (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.011% (forgot-password caret) |
-| last gate (api) | api @30306c6 (P1-T06, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 207/207 (46 suites) · e2e 29/29 suites, 161 passed, 1 skipped · CI on `release-1.0` green @d114035 |
+| last gate (api) | api @db73834 (P1-T07, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 209/209 (47 suites) · e2e 30/30 suites, 169 passed, 1 skipped · CI on `release-1.0` green @d114035 |
 | waiting on owner | — (decision round closed 2026-11-23; D23/D26 deferred by the owner; Google Places key (D16) needed before the P3 address task) |
-| next task | `P1-T08` |
+| next task | `P1-T09` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity and D26 developer account type
   (both deferred by the owner to "when the version is nearly final"); Google Cloud Places API key for D16
   (needed by the Phase 3 address task, goes in the app `.env` only).
 - **Owner decision round closed (2026-11-23):** every `DEFAULT (confirm)` row is now SETTLED in `DECISIONS.md`; D1 (80/20, min R$ 20), D3 (charge at start, automatic capture, transfer at validate), D9 (30 m access + 60 d rotating refresh token), D12 (no documents stored at all), D14 (edit profile name/phone IN 1.0), D16 (Google Places autocomplete + served-city whitelist) changed; D23/D26 deferred by the owner until the app is nearly final; D24 Cloudflare Pages or Vercel; D25 Resend preferred. Plans for phases 1–3 carry an `## Amendments (2026-11-23 …)` section with the rewritten tasks and rulings.
-- **Phase state:** L done · P0 done (CI green on GitHub) · P1 in progress (T01–T06 done) · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
+- **Phase state:** L done · P0 done (CI green on GitHub) · P1 in progress (T01–T07 done) · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T07 done (api `db73834`): price preview; review clean, gate green. P1-T08 (start: claim → charge) dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T06 done (api `30306c6`): strict `/tasks/create` with D1 fees persisted; review clean, gate green. P1-T07 dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T05 done (api `2f7682e`): cards via SetupIntent; review clean, gate green. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T04 done (api `96248ef`): CAS repositories + `cardActionRequired` column; review clean, gate green. |
