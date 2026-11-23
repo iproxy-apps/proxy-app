@@ -9,24 +9,25 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P1-T03` |
+| task | `P1-T04` |
 | step | pick |
 | files touched | — ; api Phase 0 complete at `44e09cf` |
 | last gate | app @ec22198 (Phase 0 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · `expo install --check` ✔ · maestro on rebuilt app: A 4/4 flows (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.011% (forgot-password caret) |
-| last gate (api) | api @886dc89 (P1-T02, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 198/198 (45 suites) · e2e 27/27 suites, 135 passed, 1 skipped · dev DB `migrate status` up to date · CI on `release-1.0` green @d114035 |
+| last gate (api) | api @a64edbc (P1-T03, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 205/205 (46 suites) · e2e 27/27 suites, 135 passed, 1 skipped · CI on `release-1.0` green @d114035 |
 | waiting on owner | — (decision round closed 2026-11-23; D23/D26 deferred by the owner; Google Places key (D16) needed before the P3 address task) |
-| next task | `P1-T04` |
+| next task | `P1-T05` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity and D26 developer account type
   (both deferred by the owner to "when the version is nearly final"); Google Cloud Places API key for D16
   (needed by the Phase 3 address task, goes in the app `.env` only).
 - **Owner decision round closed (2026-11-23):** every `DEFAULT (confirm)` row is now SETTLED in `DECISIONS.md`; D1 (80/20, min R$ 20), D3 (charge at start, automatic capture, transfer at validate), D9 (30 m access + 60 d rotating refresh token), D12 (no documents stored at all), D14 (edit profile name/phone IN 1.0), D16 (Google Places autocomplete + served-city whitelist) changed; D23/D26 deferred by the owner until the app is nearly final; D24 Cloudflare Pages or Vercel; D25 Resend preferred. Plans for phases 1–3 carry an `## Amendments (2026-11-23 …)` section with the rewritten tasks and rulings.
-- **Phase state:** L done · P0 done (CI green on GitHub) · P1 in progress (T01–T02 done) · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
+- **Phase state:** L done · P0 done (CI green on GitHub) · P1 in progress (T01–T03 done) · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T03 done (api `a64edbc`). Phase 2/3 plans amended (4 lettered tasks added: P2-T03b, P2-T08b, P3-T08b, P3-T14b); STATUS tables synced. Ruling: Phase 1 owns `Users.cardActionRequired` (P1-T05 migration + clear, P1-T08 set) so the Phase 3 client banner "Confirme seu cartão" has a source; e-mail stays secondary. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T02 done (api `886dc89`): migration + partial unique index, review clean, gate green. e2e flake watch: `test/auth/create-account` failed once (401 vs 400) in the implementer's run, green alone and on rerun (adds to `create-task`/`fetch-card` from Phase 0). |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | Phase 1 plan amended to the new D1/D3 (claim-first ruling folded back into D3/PLAN.md). P1-T01 done (api `67b25a4`), review clean, gate green. Phase 2/3 plan amendment still running. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | Owner's manual check of Phase 0 run by Claude instead (D28): `DEV_STACK_TEST_HOOKS=0 dev-stack.sh up` → `/health` 200, 6th `/auth/session` 429 pt-BR. Owner asked Claude to run such checks itself from now on. |
@@ -118,55 +119,59 @@ Tasks: 18
 
 ## Phase 2 — Auth & API hardening (api) — `plans/phase-2-auth-api.md`
 
-| ID | Title | Depends on | State | Notes |
+| ID | Title (synced with the amended plan index, 2026-11-23) | Depends on | State | Notes |
 |---|---|---|---|---|
-| P2-T01 | Strict sign-up schema, password policy, email normalisation | — | todo | |
-| P2-T02 | Sign-up flow: row first, Stripe Customer after, P2002 → 409, lowercase migration | P2-T01 | todo | |
-| P2-T03 | `buildSessionPayload` with numeric claims, nullable phone, `safeParse` | — | todo | |
-| P2-T04 | 30-day expiry + `tokenVersion` revocation | P2-T03 | todo | |
-| P2-T05 | `GET /auth/me` | P2-T04 | todo | |
-| P2-T06 | `update-profile`: no `userType`, `currentPassword`, bump `tokenVersion` | P2-T01, P2-T04 | todo | |
-| P2-T07 | Login returns 401 for unknown email (dummy compare) | P2-T03 | todo | |
-| P2-T08 | Password-reset hardening: attempts, send-then-persist, generic 200, dev log, HTML escape | P2-T01 | todo | |
-| P2-T09 | Account deletion per D13 (auto-cancel listings, cards, Stripe scrub, red e2e) | P2-T04 | todo | |
-| P2-T10 | Connect params, PROXY check, single `STRIPE_CONNECT_RETURN_URL`, env hardening | — | todo | |
-| P2-T11 | `SERVED_CITIES`, `Tasks.city`/`state` + backfill migration, insensitive match | — | todo | |
-| P2-T12 | `GET /tasks/fetch` → `{ items, page, perPage, hasMore }` | P2-T11 | todo | |
-| P2-T13 | Shared `taskSelect` + `publicUserSelect` + numeric `toTaskResponse` | P2-T12 | todo | |
-| P2-T14 | `GET /tasks/:id` visibility: DB role, executor-only phone, owner-only payment, deleted owner | P2-T13, P2-T04 | todo | |
-| P2-T15 | Transaction history: all executor statuses, stored earnings, numbers, `?page=` | P2-T11 | todo | |
-| P2-T16 | `PROXY_ACCOUNT_NOT_READY` on start, dead dictionary entries, dead code | — | todo | |
-| P2-T17 | Indexes, `Restrict` on financial FKs, `.gitignore` dup | P2-T11 | todo | |
-| P2-T18 | Docs sync: api `CLAUDE.md`, app `SPEC.md` | all above | todo | |
+| P2-T01 | Strict sign-up schema, password policy, email normalisation | — | todo |  |
+| P2-T02 | Sign-up flow: row first, Stripe Customer after, P2002 → 409, lowercase migration | P2-T01 | todo |  |
+| P2-T03 | `buildSessionPayload` with numeric claims, nullable phone, `safeParse`, no document claims | — | todo |  |
+| P2-T03b | Drop identity-document columns (`documentType`, `documentUrl`, `isVerified`) | P2-T01, P2-T03 | todo | new task from the 2026-11-23 amendment |
+| P2-T04 | 30-minute access JWT + rotating refresh tokens (`/auth/refresh`, `/auth/logout`) | P2-T03 | todo |  |
+| P2-T05 | `GET /auth/me` | P2-T04, P2-T03b | todo |  |
+| P2-T06 | `update-profile`: name and phone only | P2-T03, P2-T04 | todo |  |
+| P2-T07 | Login returns 401 for unknown email (dummy compare) | P2-T03 | todo |  |
+| P2-T08 | Password-reset hardening: attempts, send-then-persist, generic 200, dev log, HTML escape | P2-T01 | todo |  |
+| P2-T08b | Mail provider port: Resend adapter (default), SES adapter kept | P2-T08, P2-T10 | todo | new task from the 2026-11-23 amendment |
+| P2-T09 | Account deletion per D13 (auto-cancel listings, cards, Stripe scrub, refresh tokens, red e2e) | P2-T04, P2-T03b | todo |  |
+| P2-T10 | Connect params, PROXY check, single `STRIPE_CONNECT_RETURN_URL`, env hardening | — | todo |  |
+| P2-T11 | `SERVED_CITIES`, `Tasks.city`/`state` + backfill, Places-shaped create body, `CITY_NOT_SERVED` | — | todo |  |
+| P2-T12 | `GET /tasks/fetch` → `{ items, page, perPage, hasMore }`, canonical served city | P2-T11 | todo |  |
+| P2-T13 | Shared `taskSelect` + `publicUserSelect` + numeric `toTaskResponse` | P2-T12 | todo |  |
+| P2-T14 | `GET /tasks/:id` visibility: DB role, executor-only phone, owner-only payment, deleted owner | P2-T13, P2-T04 | todo |  |
+| P2-T15 | Transaction history: all executor statuses, stored earnings, numbers, `?page=` | P2-T11 | todo |  |
+| P2-T16 | `PROXY_ACCOUNT_NOT_READY` on start, dead dictionary entries, dead code | — | todo |  |
+| P2-T17 | Indexes, `Restrict` on financial FKs, `.gitignore` dup | P2-T11 | todo |  |
+| P2-T18 | Docs sync: api `CLAUDE.md`, app `SPEC.md` | all above | todo |  |
 
 Tasks: 18
 
 ## Phase 3 — App: contract + flows (app) — `plans/phase-3-app-flows.md`
 
-| ID | Title | Depends on | State | Notes |
+| ID | Title (synced with the amended plan index, 2026-11-23) | Depends on | State | Notes |
 |---|---|---|---|---|
-| P3-T01 | Session schema (Zod), `exp` check, `isAuthenticated = !!session`, test harness | — | todo | |
-| P3-T02 | Boot + 401 hygiene (SecureStore `.catch`, cache clear, auth-only 401) | T01 | todo | |
-| P3-T03 | `api-errors.ts`: PT mapping for 429/413/VALIDATION_FAILED + error classifiers | — | todo | |
-| P3-T04 | Contract sync: types, route functions, pagination, dead code | T01 | todo | |
-| P3-T05 | Refresh infra: `QueryFocusProvider`, NetInfo, `refreshMe`, `useSessionRefreshOnFocus` | T01, T04 | todo | |
-| P3-T06 | Task queries/mutations: `refetchInterval`, `onSettled`, `reconcileAfterTimeout`, pull-to-refresh | T04, T05 | todo | |
-| P3-T07 | `QueryErrorCard` + error states on every list; 404 vs network on detail | T03, T04 | todo | |
-| P3-T08 | Profile: "Excluir conta" (double confirm, 409), legal rows, remove "Editar dados" | T03, T04 | todo | |
-| P3-T09 | Sign-up without document/photo, tappable Terms/Privacy, choose-profile copy | T08 | todo | |
-| P3-T10 | Cards via SetupIntent, `urlScheme`, `/cards` role gate, card copy | T04 | todo | |
-| P3-T11 | Task detail split + `PaymentStatusBanner` + `requires_action` removal | T04, T06, T07 | todo | |
-| P3-T12 | Proxy gate to Wallet, "Falar com o suporte", waiting bar, start error copy | T11, T08 | todo | |
-| P3-T13 | Money from backend numbers: `PriceBreakdown` + `useChargePreviewQuery`, `ReceiptCard`, "Você recebe", `payout_failed`, "Total recebido" | T04, T11 | todo | |
-| P3-T14 | City picker: `SERVED_CITIES`, Step 1 toggle, ProxyHome pills, unserved-city error | T04 | todo | |
-| P3-T15 | Location flow: geocode first, no silent substitution, reset on edit, "Abrir Ajustes" | T14 | todo | |
-| P3-T16 | Proof upload: downscale, 10 MB check, 120 s timeout, reconcile, modal copy | T06 | todo | |
-| P3-T17 | Wallet: onboarding result, 4-state `MerchantStatusRow`, `payoutIssue` banner, `/wallet` gate | T05, T13 | todo | |
-| P3-T18 | History tab (three tabs) from `/tasks/active` + new history endpoint | T04, T06, T07 | todo | |
-| P3-T19 | Copy fixes, optional rating + 500-char counter, Client Home stats, cancel copy | T11, T13 | todo | |
-| P3-T20 | Polish A — shell: tab bar height, Toast inset, `+not-found`, deep-link replay, `AppModal` guards | T02 | todo | |
-| P3-T21 | Polish B — forms & lists: double-submit guard, ProxyHome counts/search, lazy location, `ProofPhoto` fallback, `canCancelTask` | T06 | todo | |
-| P3-T22 | Polish C — hygiene & docs: alias imports lint rule, tailwind globs, CLAUDE.md/SPEC sync | all | todo | |
+| P3-T01 | Session schema (Zod), refresh-token storage, `isAuthenticated = !!session`, test harness | — | todo |  |
+| P3-T02 | Boot hygiene + 401 → single-flight refresh → retry once → sign out; logout revokes | T01 | todo |  |
+| P3-T03 | `api-errors.ts`: PT mapping for 429/413/VALIDATION_FAILED + error classifiers | — | todo |  |
+| P3-T04 | Contract sync: types, route functions, pagination, update-profile, dead code | T01 | todo |  |
+| P3-T05 | Refresh infra: `QueryFocusProvider`, NetInfo, `refreshMe` (user data only), `useSessionRefreshOnFocus` | T01, T04 | todo |  |
+| P3-T06 | Task queries/mutations: `refetchInterval`, `onSettled`, `reconcileAfterTimeout`, pull-to-refresh | T04, T05 | todo |  |
+| P3-T07 | `QueryErrorCard` + error states on every list; 404 vs network on detail | T03, T04 | todo |  |
+| P3-T08 | Profile: "Excluir conta" (double confirm, 409), legal rows | T03, T04 | todo |  |
+| P3-T08b | Edit profile screen (name + phone) behind "Editar dados" | T03, T04, T08 | todo | new task from the 2026-11-23 amendment |
+| P3-T09 | Sign-up without document/photo, tappable Terms/Privacy, choose-profile copy | T08 | todo |  |
+| P3-T10 | Cards via SetupIntent, `urlScheme`, `/cards` role gate, card copy, `cardActionRequired` banner | T04, T05 | todo |  |
+| P3-T11 | Task detail split + `PaymentStatusBanner` (five payment states) + `requires_action` removal | T04, T06, T07 | todo |  |
+| P3-T12 | Proxy gate to Wallet, "Falar com o suporte", waiting bar, start error copy (D3) | T11, T08 | todo |  |
+| P3-T13 | Money from backend numbers: client "Você paga" (one total), proxy "Você recebe" (80 %), receipts, `payout_failed`, "Total recebido" | T04, T11 | todo |  |
+| P3-T14 | Google Places (New) client, served-city mirror, `EXPO_PUBLIC_GOOGLE_PLACES_KEY` | T04 | todo |  |
+| P3-T14b | Create Task step 1: Places address search, served-city gate, Places-shaped payload, ProxyHome pills | T14, T13 | todo | new task from the 2026-11-23 amendment |
+| P3-T15 | "Usar minha localização atual": permission flow, reverse geocode → served city, "Abrir Ajustes" | T14b | todo |  |
+| P3-T16 | Proof upload: downscale, 10 MB check, 120 s timeout, reconcile, modal copy | T06 | todo |  |
+| P3-T17 | Wallet: onboarding result, 4-state `MerchantStatusRow`, `payoutIssue` banner, `/wallet` gate | T05, T13 | todo |  |
+| P3-T18 | History tab (three tabs) from `/tasks/active` + new history endpoint | T04, T06, T07 | todo |  |
+| P3-T19 | Copy fixes, R$ 20,00 minimum, optional rating + 500-char counter, Client Home stats, cancel copy | T11, T13, T14b | todo |  |
+| P3-T20 | Polish A — shell: tab bar height, Toast inset, `+not-found`, deep-link replay, `AppModal` guards | T02 | todo |  |
+| P3-T21 | Polish B — forms & lists: double-submit guard, ProxyHome counts/search, lazy location, `ProofPhoto` fallback, `canCancelTask` | T06 | todo |  |
+| P3-T22 | Polish C — hygiene & docs: alias imports lint rule, tailwind globs, CLAUDE.md/SPEC sync | all | todo |  |
 
 Tasks: 22
 
