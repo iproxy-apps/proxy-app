@@ -1,5 +1,7 @@
 import type { ImageSourcePropType } from 'react-native'
 
+import { env } from '@/common/env'
+
 /**
  * Builds an `<Image source>` for the authenticated GET /tasks/:id/proof
  * endpoint. React Native's Image component supports `headers` on the source,
@@ -12,8 +14,8 @@ export function buildProofImageSource(
   taskId: string,
   token: string | null,
 ): ImageSourcePropType | null {
-  const baseURL = process.env.EXPO_PUBLIC_API_URL
-  if (!baseURL || !token) return null
+  const baseURL = env.apiUrl
+  if (!token) return null
   return {
     uri: `${baseURL}/tasks/${taskId}/proof`,
     headers: { Authorization: `Bearer ${token}` },

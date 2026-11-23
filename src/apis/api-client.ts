@@ -3,20 +3,13 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios'
 
+import { env } from '@/common/env'
 import { clearToken, getToken } from '@/lib/secure-store'
 import type { TApiErrorBody } from './auth/auth-api-types'
 
-const baseURL = process.env.EXPO_PUBLIC_API_URL
-
-if (!baseURL) {
-  console.warn(
-    '[api] EXPO_PUBLIC_API_URL is not set. Requests will fail until it is configured in .env.',
-  )
-}
-
 // eslint-disable-next-line import/no-named-as-default-member
 export const api = axios.create({
-  baseURL,
+  baseURL: env.apiUrl,
   timeout: 15000,
 })
 

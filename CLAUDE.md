@@ -29,8 +29,9 @@ npm run type-check       # tsc --noEmit
 Defined in `.env` (gitignored) and documented in `.env.example`. Expo requires the `EXPO_PUBLIC_` prefix to expose vars to the runtime.
 
 - `EXPO_PUBLIC_API_URL` — base URL of the proxy-api backend (e.g., `http://192.168.2.93:3333`)
+- `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` — Stripe publishable key (`pk_test_` / `pk_live_`); the placeholder `pk_test_xxx` is rejected
 
-Access from code via `process.env.EXPO_PUBLIC_API_URL`.
+Access from code via `env.apiUrl` / `env.stripePublishableKey` from `@/common/env`; never read `process.env` elsewhere. The app crashes at import time when either value is invalid.
 
 ## Routing
 
