@@ -9,24 +9,25 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P2-T11` |
-| step | build (card `cards/P2-T11.md`, implementer dispatched) |
+| task | `P2-T12` |
+| step | build (card `cards/P2-T12.md`, implementer dispatched) |
 | files touched | — ; api Phase 0 complete at `44e09cf` |
 | last gate | app @b64fc44 (Phase 1 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · maestro A 4/4 (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.000 % on 15 screens |
-| last gate (api) | api @313ccae (P2-T08b, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 333/333 (57 suites) · e2e 37/37 suites, 291 passed (pre-fix-round run) · CI on `release-1.0` green through `9dece55` |
+| last gate (api) | api @3880d5a (P2-T11, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 342/342 (58 suites) · e2e 37/37 suites, 298 passed · drift none · CI on `release-1.0` green through `313ccae` |
 | waiting on owner | — (decision round closed 2026-11-23; D23/D26 deferred by the owner; Google Places key (D16) needed before the P3 address task) |
-| next task | `P2-T12` |
+| next task | `P2-T13` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity and D26 developer account type
   (both deferred by the owner to "when the version is nearly final"); Google Cloud Places API key for D16
   (needed by the Phase 3 address task, goes in the app `.env` only).
 - **Owner decision round closed (2026-11-23):** every `DEFAULT (confirm)` row is now SETTLED in `DECISIONS.md`; D1 (80/20, min R$ 20), D3 (charge at start, automatic capture, transfer at validate), D9 (30 m access + 60 d rotating refresh token), D12 (no documents stored at all), D14 (edit profile name/phone IN 1.0), D16 (Google Places autocomplete + served-city whitelist) changed; D23/D26 deferred by the owner until the app is nearly final; D24 Cloudflare Pages or Vercel; D25 Resend preferred. Plans for phases 1–3 carry an `## Amendments (2026-11-23 …)` section with the rewritten tasks and rulings.
-- **Phase state:** L done · P0 done (CI green on GitHub) · P1 done (2026-11-23) · P2 in progress (T01–T10 + T08b done) · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
+- **Phase state:** L done · P0 done (CI green on GitHub) · P1 done (2026-11-23) · P2 in progress (T01–T11 + T08b done) · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P2-T11 done (api `3880d5a`). P2-T12 dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P2-T08b done (api `313ccae`) incl. the forgot-password timing fix carried from the P2-T08 review. P2-T11 dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | CI green again on api `b62e7b4` (the `app.listen(0)` harness fix). P2-T10 done (api `9dece55`). P2-T08b dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | **CI red on api `b7a6ade`** (P2-T08): `verify-reset-code › caps attempts under parallel guesses` → `read ECONNRESET`. Root cause (harness, not product code): `createTestApp` only ran `app.init()`, so supertest `listen(0)`/`close()`d the shared server per request and parallel `Promise.all` specs raced the close. Fix: `await app.listen(0)` in `test/setup/test-app.factory.ts` (api `b27e3b4`, own commit). Same family likely behind earlier one-off e2e flakes with parallel requests; the 404/401 one-offs and the exit-139 self-kill remain under watch (tracer loaded in orchestrator runs; 4 traced runs clean so far). P2-T09 done (api `b62e7b4`) after one fix round. P2-T10 dispatched. |
@@ -169,7 +170,7 @@ Tasks: 18
 | P2-T08b | Mail provider port: Resend adapter (default), SES adapter kept | P2-T08, P2-T10 | done | api `313ccae` · `MailPort` + `ResendMailAdapter` (plain `fetch`, 10 s `AbortSignal.timeout`) + `SesMailAdapter`; `MAIL_PROVIDER` (default `resend`), `MAIL_FROM`, `RESEND_API_KEY` (required when resend), AWS keys optional unless `ses`; `AWS_SES_FROM_EMAIL`/`SESClient` tokens gone from the service · **carried timing fix done**: forgot-password returns the generic response right after `findByEmail`, `setImmediate` job does count → send → persist with full try/catch (user.id only), e2e awaits the mock mail with a bounded `waitFor` · **fix round 1**: `dev-stack.sh` exports `MAIL_PROVIDER=ses` / `MAIL_FROM` fallbacks only when the key is absent from env AND `.env` (names checked, values never read) · unit +2 suites (333/333, 57 suites) · e2e 37/37, 291 passed · review: spec ✅, approved (Minors: fixed sleeps in negative assertions; import order) · orchestrator re-ran type-check/eslint/prettier/unit after the fix round, e2e not re-run (script + mocked adapter only) · OWNER: add `MAIL_PROVIDER=ses` and `MAIL_FROM=<SES sender>` to proxy-api `.env` for plain `start:dev` |
 | P2-T09 | Account deletion per D13 (auto-cancel listings, cards, Stripe scrub, refresh tokens, red e2e) | P2-T04, P2-T03b | todo |  |
 | P2-T10 | Connect params, PROXY check, single `STRIPE_CONNECT_RETURN_URL`, env hardening | — | done | api `9dece55` · `NODE_ENV` enum required (no default), `STRIPE_CONNECT_RETURN_URL` `z.url()` (single return URL, refresh link = `?refresh=1`), `STRIPE_PUBLIC_KEY`/`DEV_CALLBACK_URL`/`PROD_CALLBACK_URL` removed everywhere (schema, `.env.example`, `CLAUDE.md`, `unit-env.ts`, `global-setup.ts`), Stripe Connect `country: BR`, `default_currency: brl`, `capabilities.transfers`, conditional `phone`; PROXY-only check on merchant account; `scripts/dev-stack.sh` `${VAR:-default}` fallbacks for the two keys · `env.spec.ts` 3 cases, `stripe.service.spec.ts` +2, e2e merchant 3 → 6 · gate: type-check 0 · eslint 0 · jest 324/324 (55 suites) · e2e 37/37, 291 passed · review: spec ✅, approved · parked (pre-existing Minor): `app.module.ts:37-40`, `prisma.service.ts:11,16`, `test-hooks.guard.ts:27-34` still read `process.env` directly (pre-bootstrap reads; route through `EnvService` or document the exception at the Phase 2 boundary) · OWNER: add `STRIPE_CONNECT_RETURN_URL=http://localhost:3000/callback` to proxy-api `.env` (dev-stack falls back; plain `npm run start:dev` will not) |
-| P2-T11 | `SERVED_CITIES`, `Tasks.city`/`state` + backfill, Places-shaped create body, `CITY_NOT_SERVED` | — | todo |  |
+| P2-T11 | `SERVED_CITIES`, `Tasks.city`/`state` + backfill, Places-shaped create body, `CITY_NOT_SERVED` | — | done | api `3880d5a` · migration `20261124020000_add_task_city_state` (nullable add → regex backfill from `<street>, <city> - <UF>, <zip>` → fallback `left(address,120)`/`state=''` → NOT NULL → `tasks_city_status_createdAt_idx`; regex probed on 4 sample addresses in the gate: SP/SP, Paulista/SP, Rio/rj→RJ, non-matching → null) · `src/common/served-cities.ts` (`SERVED_CITIES` SP/RJ/BH, accent/case fold, UF or state name) · 400 `CITY_NOT_SERVED` before user/card/Stripe lookups · body `{ formattedAddress, complement?, city, state, locationLat, locationLng }` strict, legacy `street`/`zipCode` tolerated · `taskSelect` + types carry `city`/`state`; both task factories default São Paulo/SP · e2e create-task +7 (298 total) · unit 342/342 (58 suites) · gate: type-check 0 · eslint 0 · drift none · review: spec ✅, approved · note for P2-T12: backfilled `city` values are raw text (not canonical) — filter via fold-match or canonicalise |
 | P2-T12 | `GET /tasks/fetch` → `{ items, page, perPage, hasMore }`, canonical served city | P2-T11 | todo |  |
 | P2-T13 | Shared `taskSelect` + `publicUserSelect` + numeric `toTaskResponse` | P2-T12 | todo |  |
 | P2-T14 | `GET /tasks/:id` visibility: DB role, executor-only phone, owner-only payment, deleted owner | P2-T13, P2-T04 | todo |  |
