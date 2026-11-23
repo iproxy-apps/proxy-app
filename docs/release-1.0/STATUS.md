@@ -26,6 +26,7 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | Owner's manual check of Phase 0 run by Claude instead (D28): `DEV_STACK_TEST_HOOKS=0 dev-stack.sh up` → `/health` 200, 6th `/auth/session` 429 pt-BR. Owner asked Claude to run such checks itself from now on. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | **Phase 0 closed.** Boundary regression green on rebuilt A/B, visual freeze held, final review fix wave (api `e0f01f6`, app `ec22198`). Handoff not written (ai-memory offline). Next: P1-T01. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T16 done (app CI, awaiting push). All 16 Phase 0 tasks committed; boundary regression starts. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T15 done (fail-fast env module). Simulator A rebuild started after P0-T13 deps (ios/ regenerated: stale Podfile.lock). P0-T16 card written. |
