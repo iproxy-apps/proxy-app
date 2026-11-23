@@ -169,6 +169,24 @@ src/
 - **Files**: kebab-case for non-component files (`card-store.ts`, `brand-display.ts`); PascalCase for components (`CardPreview.tsx`, `MenuList.tsx`).
 - **Color tokens**: import from `@/common/theme/colors`. Never declare local `const GRAPHITE = ...` blocks. Gradient stops unique to one component can stay inline.
 
+## Device loop
+
+iOS simulator loop for Maestro UI flows, driven by [scripts/device.sh](./scripts/device.sh). Devices
+are letters: `A` = iPhone 17 Pro (CLIENT), `B` = iPhone 17e (PROXY), both iOS 26.5. State lives in
+`.dev-stack/` (gitignored).
+
+```bash
+scripts/device.sh boot <A|B>                          # boot the simulator
+scripts/device.sh metro                               # Metro on 8081 with EXPO_PUBLIC_API_URL=http://localhost:3333
+scripts/device.sh build <A|B>                         # expo run:ios on that simulator (no bundler)
+scripts/device.sh install <A|B>                       # reuse the built .app on another simulator
+scripts/device.sh test <A|B> <flow-or-dir> [args]     # run Maestro flows from the repo root
+scripts/device.sh shot <A|B> <path-without-ext>       # ad-hoc simulator screenshot (.png)
+scripts/device.sh down                                # stop our Metro, remove .dev-stack/
+```
+
+Flows, tags, screenshot paths and selector rules: [.maestro/README.md](./.maestro/README.md).
+
 ## Prototype reference
 
 The visual/UX reference lives in the Lovable export at `~/Downloads/proxy-prototype`. The output is web (React + Vite + shadcn/ui), so treat it as a design reference, not code to port directly.

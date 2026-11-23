@@ -42,3 +42,7 @@ yarn-error.*
 /android
 
 .claude/settings.local.json
+
+# device loop (scripts/device.sh, Maestro)
+.dev-stack/
+.maestro/.maestro/

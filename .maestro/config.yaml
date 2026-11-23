@@ -1,0 +1,3 @@
+# Maestro workspace config. Run flows through scripts/device.sh (see README.md).
+# Tags: smoke, full, baseline, plus one area tag (auth, cards, tasks, wallet, history, profile).
+flows: ["flows/**"]

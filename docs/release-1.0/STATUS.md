@@ -9,12 +9,12 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `L-T04` |
-| step | build |
+| task | `L-T05` |
+| step | pick |
 | files touched | — |
-| last gate | api @1267e60: tsc 1 pre-existing error (user.factory.ts:64, P0-T02) · jest 158/158 · e2e 109/110 (pre-existing red delete-account) (2026-11-23) |
+| last gate | app L-T04: `npx tsc --noEmit && npx eslint .` exit 0 (2026-11-23) |
 | waiting on owner | — |
-| next task | `L-T05` |
+| next task | `P0-T01` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity, D24 static-site origin,
   D26 developer account type (Play closed test clock); plus
@@ -35,7 +35,7 @@ phases" section because they are briefs/checklists, not task tables.
 | L-T01 | Branch `release-1.0` + board plumbing (`## Now` table, task cards, LOOP/DECISIONS/marker commit) | — | done | |
 | L-T02 | `TestHooksModule`: `/__test/reset`, `/__test/seed-user`, `/__test/mark-account-ready` behind `LOOP_TEST_HOOKS=1` + local-DB guard | — | done | api `1267e60` · jest 158/158 · e2e 109/110 · 2 review rounds (SkipThrottle default+auth) |
 | L-T03 | `proxy-api/scripts/dev-stack.sh up/down/status/logs` (compose Postgres, api with hooks, `stripe listen`, pid tracking) | L-T02 | done | api `b84a8ff` · up/status/down + exit-1/exit-2 paths verified live · 1 review round (pgid cleanup, pid-reuse guard, non-destructive status probe, log tails) |
-| L-T04 | Java + Maestro install, `.maestro/` scaffold, `proxy-app/scripts/device.sh`, first smoke flow | — | in_progress | |
+| L-T04 | Java + Maestro install, `.maestro/` scaffold, `proxy-app/scripts/device.sh`, first smoke flow | — | done | app L-T04 commit · maestro welcome-to-sign-in ✔ on A and B · Maestro 2.12.1 · tsc+eslint 0 · splash heading asserted by prefix regex (one a11y element with the accent line) |
 | L-T05 | Visual baseline: 15 screenshots on device A (iOS 26.5) + `visual-baseline/INDEX.md` + baseline flows | L-T02, L-T03, L-T04 | todo | |
 
 Tasks: 5
@@ -186,7 +186,14 @@ Tasks: 18
 
 - MacBook Pro M5 (2026-11-23, the loop machine per D31): Node 24.12, Xcode 27.2 with iPhone 17 Pro /
   17e / 18 Pro simulators, Docker Desktop running, Stripe CLI installed, Lovable prototype at
-  `~/Downloads/proxy-prototype`. Missing: Java runtime, Maestro, `eas`, `wrangler`, `psql`.
+  `~/Downloads/proxy-prototype`. Missing: `eas`, `wrangler`, `psql`.
+- MacBook Pro M5 device loop (L-T04, 2026-11-23): Maestro 2.12.1 (`brew install
+  mobile-dev-inc/tap/maestro`, `/opt/homebrew/bin/maestro`); Java: brew openjdk@25 (openjdk
+  25.0.5, keg-only, `/usr/bin/java` is the macOS stub) via JAVA_HOME in scripts/device.sh. Maestro's
+  first run blocks on an analytics prompt unless `MAESTRO_CLI_NO_ANALYTICS=1` (device.sh sets it).
+  Xcode 27.2 ships `DeviceHub.app`, not `Simulator.app`. `expo run:ios` builds into
+  `~/Library/Developer/Xcode/DerivedData/proxyapp-*`, not `ios/build/` (device.sh `install` checks both).
+  Maestro 2.12 writes `takeScreenshot` under its run output dir; `device.sh test` copies it to `.dev-stack/shots/<name>.png`.
 
 - Hackintosh (2026-11-08): Node 26.13, Docker Desktop installed (start it before e2e), Stripe CLI not
   installed, no `eas`/`wrangler`/`aws` CLIs, Lovable prototype only on the MacBook.

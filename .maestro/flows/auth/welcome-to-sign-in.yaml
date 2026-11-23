@@ -1,0 +1,14 @@
+appId: com.anonymous.proxyapp
+tags: [smoke, auth]
+---
+- launchApp:
+    clearState: true
+# The heading is one accessibility element ("Resolva o que precisa.\nOu ganhe fazendo.") and
+# Maestro full-matches the regex, so match the prefix.
+- assertVisible: "Resolva o que precisa.*"
+- assertVisible: "Criar conta"
+- tapOn: "Já tenho conta"
+- assertVisible: "Bem-vindo de volta"
+- assertVisible: "voce@email.com"
+# device.sh test copies this to .dev-stack/shots/auth--sign-in.png
+- takeScreenshot: auth--sign-in
