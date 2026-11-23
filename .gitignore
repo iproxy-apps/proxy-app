@@ -46,3 +46,4 @@ yarn-error.*
 # device loop (scripts/device.sh, Maestro)
 .dev-stack/
 .maestro/.maestro/
+coverage/

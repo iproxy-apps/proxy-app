@@ -1141,6 +1141,17 @@ added), SPEC.md §3.4 (throttle table), proxy-api `CLAUDE.md` (rate-limiting lin
   `npx eslint .` → exit 0.
 - [ ] **Step 6: Mark done in ../STATUS.md; commit message** `test(app): P0-T14 jest-expo + RNTL runner with Button render test`
 
+> **Superseded by implementation (2026-11-23):** four assumptions were wrong. (1) `jest-expo@57.0.6`
+> needs the peer `@react-native/jest-preset ^0.86.3` and RNTL 14.1.0 needs the peer `test-renderer
+> ^1.0.0`; with `legacy-peer-deps=true` neither is installed automatically, so both were added as
+> devDependencies (`@react-native/jest-preset@0.86.3`, `test-renderer@^1.3.1`). (2) RNTL 14's `render`
+> and `fireEvent.press` are async: the three test bodies are `async` with `await`, assertions unchanged.
+> (3) `require('react-native-reanimated').setUpTests()` throws under Reanimated 4.5.1 / worklets; the
+> documented fallback `jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'))`
+> is used. (4) TypeScript 6 no longer auto-includes `@types/*`: `tsconfig.json` gained
+> `"types": ["jest"]`. Also, `expo install -- --save-dev` put the packages in `dependencies`; they were
+> moved to `devDependencies` by hand.
+
 ---
 
 ### Task P0-T15: `src/common/env.ts` fail-fast and consumers (APP-15)
