@@ -9,24 +9,25 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P2-T16` |
-| step | build (card `cards/P2-T16.md`, implementer dispatched) |
+| task | `P2-T17` |
+| step | build (card `cards/P2-T17.md`, implementer dispatched) |
 | files touched | — ; api Phase 0 complete at `44e09cf` |
 | last gate | app @b64fc44 (Phase 1 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · maestro A 4/4 (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.000 % on 15 screens |
-| last gate (api) | api @aa4f9a1 (P2-T15, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 353/353 (59 suites) · e2e 37/37 suites, 318 passed (2nd run; 1st died in the Node 24 GC crash) · CI on `release-1.0` green through `9a5b0dc` |
+| last gate (api) | api @9c96c93 (P2-T16, 2026-11-23, orchestrator-run, Node v22.23.5): type-check 0 · eslint 0 · jest 354/354 (60 suites) · e2e 37/37 suites, 318 passed · CI on `release-1.0` green through `9a5b0dc` |
 | waiting on owner | — (decision round closed 2026-11-23; D23/D26 deferred by the owner; Google Places key (D16) needed before the P3 address task) |
-| next task | `P2-T17` |
+| next task | `P2-T18` (docs), then the Phase 2 boundary |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity and D26 developer account type
   (both deferred by the owner to "when the version is nearly final"); Google Cloud Places API key for D16
   (needed by the Phase 3 address task, goes in the app `.env` only).
 - **Owner decision round closed (2026-11-23):** every `DEFAULT (confirm)` row is now SETTLED in `DECISIONS.md`; D1 (80/20, min R$ 20), D3 (charge at start, automatic capture, transfer at validate), D9 (30 m access + 60 d rotating refresh token), D12 (no documents stored at all), D14 (edit profile name/phone IN 1.0), D16 (Google Places autocomplete + served-city whitelist) changed; D23/D26 deferred by the owner until the app is nearly final; D24 Cloudflare Pages or Vercel; D25 Resend preferred. Plans for phases 1–3 carry an `## Amendments (2026-11-23 …)` section with the rewritten tasks and rulings.
-- **Phase state:** L done · P0 done (CI green on GitHub) · P1 done (2026-11-23) · P2 in progress (T01–T15 + T08b done) · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
+- **Phase state:** L done · P0 done (CI green on GitHub) · P1 done (2026-11-23) · P2 in progress (T01–T16 + T08b done) · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P2-T16 done (api `9c96c93`); first gate on Node 22. P2-T17 dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P2-T15 done (api `aa4f9a1`). **exit-139 solved:** macOS crash pairs show the jest child dying in V8 GC (`ClearStaleLeftTrimmedPointerVisitor`, `KERN_INVALID_ADDRESS 0xe`) on Node v24.12.0 and npm re-raising SIGSEGV; the repo pins Node 22. Loop switches to Node 22 locally from P2-T16 on. P2-T16 dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P2-T14 done (api `18c0cc3`), raw payment exposure closed. P2-T15 dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P2-T13 done (api `9a5b0dc`). P2-T14 dispatched (must close the raw PaymentRecord exposure on by-id). |
@@ -179,7 +180,7 @@ Tasks: 18
 | P2-T13 | Shared `taskSelect` + `publicUserSelect` + numeric `toTaskResponse` | P2-T12 | done | api `9a5b0dc` · `task-select.ts` (`publicUserSelect` + `taskSelect` with public `ownerId` sub-select, `city`/`state`, `stripeFee`/`chargedAmount`, `completedAt`/`canceledAt`; no `transferId`) · `toTaskResponse` (all Decimals `.toNumber()`), `TaskResponse`/`PublicUserResponse`; fetch/active/by-id map through it; `FetchTasksResult`/`TaskCounterpart` removed · start-task: owner `stripeCustomerId` via `findUserStripeCustomerId` (before the claim), notification contact via `fetchUserDetailsById` inside the existing try/catch · by-id `executor` via `toPublicUser` (ruling: avoids a Decimal string) · unit 346/346 (59 suites) · e2e 37/37, 308 passed · review (opus): spec ✅, approved · **carried to P2-T14 (Important, pre-existing):** by-id still returns the raw `PaymentRecord` (`paymentIntent`, `chargeId`, `disputeId`, Decimal `amount`) to any PROXY — P2-T14 `toPaymentResponse` owner-only closes it · Minor → P2-T14: by-id e2e still wraps money in `Number(...)` |
 | P2-T14 | `GET /tasks/:id` visibility: DB role, executor-only phone, owner-only payment, deleted owner | P2-T13, P2-T04 | done | api `18c0cc3` · 6-step visibility rules on `GET /tasks/:id` (missing / stranger CLIENT / stranger PROXY on non-available → same 404 `TASK_NOT_FOUND`), `TaskDetailResponse` = `Omit<TaskResponse,'ownerId'> & { ownerId public, executor via toPublicUser, phoneNumber only owner↔executor in in_progress/verification_required, payment owner-only via toPaymentResponse (no paymentIntent/chargeId/disputeId, numeric amount) }` · `fetchPhoneNumberById` · `fetchTaskById` no longer filters deleted owners (executor keeps reading completed tasks; D13 paths traced by the reviewer: no residual claim/charge path) · **closes the pre-existing raw PaymentRecord exposure to any PROXY** · by-id e2e 9 → 15, `Number(...)` wrappers gone · unit 348/348 (59 suites) · e2e 37/37, 314 passed · review (opus): spec ✅, approved · Minors parked: phone case for `verification_required` missing; deleted-owner e2e should also null phone/avatar; `refundId` exposed to the owner by the card (Phase 3 may drop it) |
 | P2-T15 | Transaction history: all executor statuses, stored earnings, numbers, `?page=` | P2-T11 | done | api `aa4f9a1` · `GET /auth/transaction-history?page=` (cap 10 000) → `{ tasksCreated, tasksCompleted, page, perPage: 20, hasMore }` (`TaskSummary[]`, over-fetch 21 on both lists, OR of overflows) · executor list = `completed | canceled | payout_failed` ordered by `updatedAt desc`; `netAmount` from stored Decimals (`proxyEarnings.toNumber()`, owner `chargedAmount ?? offeredPrice` on completed, 0 otherwise) · `fetchTasksExecutedByUser`, `HistoryTaskRow` (no `description`) · last old-model fee math deleted from `src` (`grep 0.0399|* 0.2` only hits the `money.spec.ts` assertion) · e2e 3 → 7 (318 total) · unit 353/353 (59 suites) · review: spec ✅, approved · **e2e crash root cause found:** real V8 segfault in the jest child (`ClearStaleLeftTrimmedPointerVisitor` during Mark-Compact GC) on local Node v24.12.0; npm re-raises the child's SIGSEGV (`run-script-pkg.js:102`), which is the self-kill the tracer saw. Repo pins Node 22 (`.nvmrc`, `engines`), CI runs 22 → never crashed there. Fix: run the loop on Node 22 (`nvm install 22`, per-shell `nvm use 22`) — orchestrator doing it now |
-| P2-T16 | `PROXY_ACCOUNT_NOT_READY` on start, dead dictionary entries, dead code | — | todo |  |
+| P2-T16 | `PROXY_ACCOUNT_NOT_READY` on start, dead dictionary entries, dead code | — | done | api `9c96c93` · `POST /tasks/start`: `userType !== PROXY` → 403 `USER_NOT_PROXY`, `!stripeAccountReady` → 409 `PROXY_ACCOUNT_NOT_READY` (`user.accountNotReadyToStart`, proxy-facing copy), before replay/card/claim · `error-dictionary.spec.ts` walks `src/` and fails on any unreferenced entry (found none beyond the new one until wired — Phase 1 had already pruned the three the task named) · `AuthRepository.updateUserPassword` deleted · unit 354/354 (60 suites) · e2e 37/37, 318 passed (Node 22) · review: spec ✅, approved (Minors: substring match in the liveness spec could mask a dead prefix entry; comment mentions count as references) |
 | P2-T17 | Indexes, `Restrict` on financial FKs, `.gitignore` dup | P2-T11 | todo |  |
 | P2-T18 | Docs sync: api `CLAUDE.md`, app `SPEC.md` | all above | todo |  |
 
