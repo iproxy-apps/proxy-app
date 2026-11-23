@@ -27,7 +27,7 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Date | Session | What happened |
 |---|---|---|
-| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | **Phase 1 closed.** Final review + fix wave (api `03e798a`), boundary regression green (Maestro A 4/4, B 1/1, visual-diff 0.000 %), webhooks exercised live. Parked items recorded. Next: `P2-T01` (Phase 2 auth & API hardening). Owner inputs still open: Google Places key before P3-T14b; D23/D26 when near final. |
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | **Phase 1 closed.** Final review + fix wave (api `03e798a`), boundary regression green (Maestro A 4/4, B 1/1, visual-diff 0.000 %), webhooks exercised live. Parked items recorded. Next: `P2-T01` (Phase 2 auth & API hardening). Owner inputs still open: Google Places key before P3-T14b; D23/D26 when near final. ai-memory handoff NOT written (Mac Pro server unreachable again); this STATUS is the handoff. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T17 done (api `fe30eff`) after one fix round. All 18 Phase 1 tasks committed. Boundary started: webhook exercised via Stripe CLI (events dispatched, deduped, "matches no task" for the CLI fixture as expected), Maestro regression + whole-branch review running. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T18 done (app, this commit): wire types for the Phase 1 contract; review clean, app gate green. P1-T17 (api CLAUDE.md) running in parallel (different repo). |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T16 done (api `cc3ddab`): auto-release job; review clean, gate green. P1-T17 (CLAUDE.md rewrite) dispatched. |
