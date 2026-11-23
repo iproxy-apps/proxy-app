@@ -14,21 +14,13 @@ phases" section because they are briefs/checklists, not task tables.
 | files touched | — ; api Phase 0 complete at `44e09cf` |
 | last gate | app @ec22198 (Phase 0 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · `expo install --check` ✔ · maestro on rebuilt app: A 4/4 flows (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.011% (forgot-password caret) |
 | last gate (api) | api @e0f01f6 (Phase 0 close, orchestrator-run 2026-11-23; jest also green with `.env` absent): type-check (strict) 0 · eslint 0/0 on 196 files · jest 187/187 (44 suites) · e2e 26/26 suites, 1 skipped (parked delete-account → Phase 2 D13), 131 passed — **no known reds**: a gate is green only when every step exits 0 |
-| waiting on owner | decision round 2026-11-23 (D1/D3/D5/D6/D9/D12/D16 recommendations sent, owner to confirm) |
+| waiting on owner | — (decision round closed 2026-11-23; D23/D26 deferred by the owner; Google Places key (D16) needed before P3 city task; `git push` of `release-1.0` for CI) |
 | next task | `P1-T02` |
 
-- **Owner inputs still open** (see `DECISIONS.md`): D23 store identity, D24 static-site origin,
-  D26 developer account type (Play closed test clock); plus
-  confirmation of every `DEFAULT (confirm)` row (D1, D3, D5–D9, D12, D14, D16, D18, D25).
-- **Owner decision round (2026-11-23, in flight; DECISIONS.md not yet updated):** owner replied before
-  compaction: D7 accepted (platform absorbs Stripe fee), D8 accepted, D18 accepted, D25 accepted
-  ("o mais barato possível"); D14 **changed** → edit profile IS in 1.0 (small) and delete-account must
-  ship (store requirement; endpoint exists, e2e un-skip = D13); D12 **changed** → document photo/CPF
-  leave sign-up but owner wants the document kept encrypted so nobody can read it (LGPD) — needs a
-  recommendation; D16 **changed** → cities supported via Google Places address search, not a static
-  picker; D1 owner leans "proxy absorbs" but asked for a recommendation; D3, D5, D6, D9 asked for
-  recommendations (D9: owner suggested short access token + silent refresh on 401). D23/D24/D26 unanswered.
-  Loop resumes at `P1-T01` after the owner confirms; settle rows in DECISIONS.md first.
+- **Owner inputs still open** (see `DECISIONS.md`): D23 store identity and D26 developer account type
+  (both deferred by the owner to "when the version is nearly final"); Google Cloud Places API key for D16
+  (needed by the Phase 3 address task, goes in the app `.env` only).
+- **Owner decision round closed (2026-11-23):** every `DEFAULT (confirm)` row is now SETTLED in `DECISIONS.md`; D1 (80/20, min R$ 20), D3 (charge at start, automatic capture, transfer at validate), D9 (30 m access + 60 d rotating refresh token), D12 (no documents stored at all), D14 (edit profile name/phone IN 1.0), D16 (Google Places autocomplete + served-city whitelist) changed; D23/D26 deferred by the owner until the app is nearly final; D24 Cloudflare Pages or Vercel; D25 Resend preferred. Plans for phases 1–3 carry an `## Amendments (2026-11-23 …)` section with the rewritten tasks and rulings.
 - **Phase state:** L done · P0 done (CI runs awaiting push) · P1 todo · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)

@@ -98,7 +98,7 @@ Git is the memory. The conversation is a cache.
 - **Commits (D30, settled 2026-11-23).** Work happens on branch `release-1.0` in each repo. The
   orchestrator commits **one commit per task** when the task reaches `done`
   (`feat|fix|test|chore(<area>): <task id> <title>`, no Claude attribution, `STATUS.md` and card
-  deletion in the same commit). It never pushes and never touches `main`. The reviewer's diff is
+  deletion in the same commit), then pushes `release-1.0` (owner allowed pushes and new branches on 2026-11-23). It never touches `main`. The reviewer's diff is
   `git diff` of the working tree against the branch head, so it is exactly one task.
   **Two-commit rule:** for a task whose code lives in proxy-api, the orchestrator commits the code in
   proxy-api and the STATUS/card change in proxy-app as `chore(docs): <task id> status`; app-side tasks
@@ -250,7 +250,7 @@ Decided by the orchestrator (owner may override):
 
 Owner decisions (2026-11-23, recorded in `DECISIONS.md`):
 
-- **D30 — commits:** one commit per task on `release-1.0`, orchestrator commits, owner pushes (§6).
+- **D30 — commits:** one commit per task on `release-1.0`, orchestrator commits and pushes (§6); `main` untouched.
 - **D31 — machines:** MacBook Pro M5 only runs the loop and the device steps; baseline pinned to one
   simulator.
 

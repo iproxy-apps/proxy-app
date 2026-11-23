@@ -64,7 +64,7 @@ temporarily marked `.todo` with a pointer); `STATUS.md` updated.
 
 ### Phase 1 — Money core (plans/phase-1-money-core.md)
 
-Implements D1–D7, D19. Key pieces:
+Implements D1–D7, D19. **2026-11-23:** D1 is now 80/20 (client pays exactly `offeredPrice`, proxy gets 80 %, Stripe fee comes out of the platform's 20 %, min price R$ 20) and D3 confirms charge-at-start with automatic capture (no hold/capture); the detailed plan carries an Amendments section. Key pieces:
 - `src/common/money.ts`: `computeCharge(offeredPrice: Decimal) → { offeredPrice, platformFee,
   stripeFee, chargedAmount, proxyEarnings }` (all `Decimal`, 2 dp) + `toCentavos(d: Decimal): number`.
   Persist `platformFee`, `stripeFee`, `chargedAmount`, `proxyEarnings` on the task at **create** time
@@ -87,7 +87,7 @@ Implements D1–D7, D19. Key pieces:
   (BE-01, BE-06, BE-08).
 - `/tasks/cancel`: branch on latest payment status (`succeeded` → refund full `chargedAmount`,
   `pending` → PI cancel, `failed|refunded` → no call), accept refund `pending`, CAS (BE-07, BE-21).
-- `/tasks/create`: Zod `offeredPrice min(10) max(10000) multipleOf(0.01)`, title/description bounds,
+- `/tasks/create`: Zod `offeredPrice min(20) max(10000) multipleOf(0.01)`, title/description bounds,
   `cardDetails` union, CLIENT-only, validate card before insert, `$transaction` with counter (BE-09, BE-19).
 - Webhooks: insert `StripeEvents` first (`P2002` = already processed) (BE-23); `payment_failed`
   guarded by `status: 'pending'`/`in_progress` (BE-22); `charge.refunded` keeps `refundId` (BE-21);
