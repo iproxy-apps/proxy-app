@@ -9,24 +9,25 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P1-T17` |
-| step | build (P1-T17 implementer running; P1-T18 done) |
+| task | Phase 1 boundary |
+| step | phase boundary (regression + final review running) |
 | files touched | — ; api Phase 0 complete at `44e09cf` |
 | last gate | app @ec22198 (Phase 0 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · `expo install --check` ✔ · maestro on rebuilt app: A 4/4 flows (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.011% (forgot-password caret) |
 | last gate (api) | api @cc3ddab (P1-T16, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 280/280 (48 suites) · e2e 32/32 suites, 227 passed, 1 skipped · CI on `release-1.0` green @d114035 |
 | waiting on owner | — (decision round closed 2026-11-23; D23/D26 deferred by the owner; Google Places key (D16) needed before the P3 address task) |
-| next task | `P1-T18` |
+| next task | `P2-T01` (after the Phase 1 boundary) |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity and D26 developer account type
   (both deferred by the owner to "when the version is nearly final"); Google Cloud Places API key for D16
   (needed by the Phase 3 address task, goes in the app `.env` only).
 - **Owner decision round closed (2026-11-23):** every `DEFAULT (confirm)` row is now SETTLED in `DECISIONS.md`; D1 (80/20, min R$ 20), D3 (charge at start, automatic capture, transfer at validate), D9 (30 m access + 60 d rotating refresh token), D12 (no documents stored at all), D14 (edit profile name/phone IN 1.0), D16 (Google Places autocomplete + served-city whitelist) changed; D23/D26 deferred by the owner until the app is nearly final; D24 Cloudflare Pages or Vercel; D25 Resend preferred. Plans for phases 1–3 carry an `## Amendments (2026-11-23 …)` section with the rewritten tasks and rulings.
-- **Phase state:** L done · P0 done (CI green on GitHub) · P1 in progress (T01–T16 done) · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
+- **Phase state:** L done · P0 done (CI green on GitHub) · P1 tasks done (T01–T18), boundary in progress · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T17 done (api `fe30eff`) after one fix round. All 18 Phase 1 tasks committed. Boundary started: webhook exercised via Stripe CLI (events dispatched, deduped, "matches no task" for the CLI fixture as expected), Maestro regression + whole-branch review running. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T18 done (app, this commit): wire types for the Phase 1 contract; review clean, app gate green. P1-T17 (api CLAUDE.md) running in parallel (different repo). |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T16 done (api `cc3ddab`): auto-release job; review clean, gate green. P1-T17 (CLAUDE.md rewrite) dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T15 done (api `8c2e3a1`) after one fix round (atomic dispute write). e2e flake watch: `validate-task` failed once more in an implementer run (2nd occurrence), never in orchestrator runs (26 clean runs). P1-T16 dispatched. |
