@@ -4,20 +4,28 @@
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
 > checkbox (`- [ ]`) syntax for tracking. Update `../STATUS.md` when a task starts and finishes.
 
-**Goal:** make the proxy-api money path unable to lose or double-move money: client pays
-`offeredPrice + fees`, proxy receives exactly `offeredPrice`, every status transition is
-compare-and-set, every Stripe call is idempotent and happens before (or is reverted after) the DB
-write it depends on, webhooks dedupe first, proofs live in object storage.
+**Goal:** make the proxy-api money path unable to lose or double-move money: the client pays
+exactly `offeredPrice` (`chargedAmount = offeredPrice`), the proxy receives `proxyEarnings` = 80 %
+of it, the platform keeps `platformFee` = 20 % and pays Stripe's fee out of that (D1); every status
+transition is compare-and-set; the start charge happens only after an atomic claim, so exactly one
+charge ever reaches the client; every Stripe call is idempotent and happens after (or is reverted
+by) the DB write it depends on; webhooks dedupe first; proofs live in object storage.
 
 **Architecture:** one pure money module (`src/common/money.ts`) feeds `create` (fees persisted on
-the task), `start` (off-session charge of `chargedAmount` as an authorisation hold, DB claim, then
-capture), `validate` (payment-checked, CAS-first transfer with `source_transaction`), `cancel`
-(CAS-first, branch on latest payment status) and the new `GET /tasks/price-preview`. Cards are saved
-through a SetupIntent (`POST /card/setup-intent` + `POST /card/create { paymentMethodId }`). Webhooks
-insert the `StripeEvents` row first; `payout.failed` and `charge.dispute.created` only flag. Proofs
-go through a `ProofStorage` port (`S3ProofStorage` in prod, `LocalDiskProofStorage` in dev/test)
-after a magic-byte check and JPEG normalisation. A daily `@nestjs/schedule` job auto-validates tasks
-stuck in `verification_required` for 7 days.
+the task), `start` (atomic CAS claim, then one off-session PaymentIntent for `chargedAmount`
+created **and** confirmed with automatic capture under the idempotency key
+`start:<taskId>:<proxyId>:<claim epoch ms>`, then the `succeeded` payment row; a definite decline
+releases the claim, answers the proxy 409 `PAYMENT_FAILED` and e-mails the client "Confirme seu
+cartão na Carteira"), `validate` (payment-checked, CAS-first transfer of `proxyEarnings` with
+`source_transaction`), `cancel` (dispute-blocked, CAS-first, full refund of a succeeded charge) and
+the new `GET /tasks/price-preview`. Funds sit in the platform balance between `start` and
+`validate` (separate charges and transfers). Cards are saved through a SetupIntent
+(`POST /card/setup-intent` + `POST /card/create { paymentMethodId }`). Webhooks insert the
+`StripeEvents` row first and write payment rows idempotently from PaymentIntent metadata;
+`payout.failed` and `charge.dispute.created` only flag. Proofs go through a `ProofStorage` port
+(`S3ProofStorage` in prod, `LocalDiskProofStorage` in dev/test) after a magic-byte check and JPEG
+normalisation. A daily `@nestjs/schedule` job auto-validates tasks stuck in
+`verification_required` for 7 days.
 
 **Tech stack:** NestJS 11.0, Prisma 7.3 (`Prisma.Decimal` = decimal.js, `ROUND_HALF_UP`), Zod 4.3,
 `stripe` 20.2 (`apiVersion: '2025-12-15.clover'`), Jest 30 + ts-jest, Testcontainers Postgres 16,
@@ -25,8 +33,125 @@ supertest. New: `@nestjs/schedule` ^6, `@aws-sdk/client-s3` ^3.1164, `sharp` ^0.
 ^2.1 (+ `@types/heic-convert`), `file-type@16.5.4` (last CommonJS release; v17+ is ESM-only and
 cannot be `require`d by ts-jest). Node 26 locally.
 
-**Spec:** ../PLAN.md §2 (Phase 1), ../DECISIONS.md D1–D8, D18, D19, `proxy-app/SPEC.md` §7.2, §7.3,
-§8.8, §8.10, §3.3 (codes).
+**Spec:** ../PLAN.md §2 (Phase 1), ../DECISIONS.md D1–D8 (D1 and D3 as rewritten on 2026-11-23),
+D18, D19, `proxy-app/SPEC.md` §7.2, §7.3, §8.8 (fee lines superseded by D1), §8.10, §3.3 (codes).
+
+## Amendments (2026-11-23 owner decision round)
+
+This plan was written on 2026-11-08 against the old D1/D3 and was rewritten in place on 2026-11-23.
+Where this plan and an older text disagree (including the PLAN.md §2 Phase 1 summary and the
+original wording of D3), the rulings below are what the loop implements.
+
+What changed:
+- **D1 (fees):** was "client pays `offeredPrice + 20 % + Stripe fee`, proxy receives `offeredPrice`";
+  now the client pays exactly `offeredPrice`, `platformFee = 20 %`, `proxyEarnings = 80 %`,
+  `stripeFee = 3.99 % × chargedAmount + R$ 0,39` is paid by the platform out of its 20 %, bounds
+  `20 ≤ offeredPrice ≤ 10000` (R$ 100 → client 100.00, platformFee 20.00, stripeFee 4.38,
+  proxyEarnings 80.00, platformNet 15.62).
+- **D3 (charging):** was a manual-capture authorisation hold at start and a capture after the claim;
+  now `/tasks/start` creates and confirms an off-session PaymentIntent with **automatic capture**,
+  only `succeeded` continues, any other outcome leaves the task `available`, answers the proxy
+  409 "Não foi possível cobrar o cliente. Tente outra tarefa." and notifies the client "Confirme seu
+  cartão na Carteira". No manual capture, no capture call, no hold anywhere.
+
+Tasks touched: P1-T01 (rewritten), P1-T02 (backfill SQL, amounts), P1-T03 (rewritten), P1-T04
+(rewritten), P1-T06 (bounds, values), P1-T07 (values), P1-T08 (rewritten), P1-T12 (80 % transfer,
+values), P1-T13 (rewritten), P1-T14 (rewritten), P1-T15 (D6 wording), P1-T16 (values), P1-T17
+(rewritten), P1-T18 (`TChargePreview`, notes). P1-T05, P1-T09, P1-T10, P1-T11 unchanged.
+
+Rulings (format: `Ruling: <decision> — <why> — <cost if wrong>`):
+- Ruling: `/tasks/start` claims first (CAS `available → in_progress` + mapping in one transaction),
+  then charges, then writes the payment row — with automatic capture a charge cannot be undone
+  without a refund, so the CAS has to pick the single winner *before* Stripe is called; a racing
+  proxy loses the CAS and never reaches Stripe, so exactly one charge reaches the client. D3's
+  "nothing claimed, task stays available" holds at the end of every failed request because the
+  claim is released before the response — cost if wrong: during the Stripe call (≈ 1–3 s) a second
+  proxy is told `TASK_NOT_AVAILABLE` for a task that may become available again a moment later.
+- Ruling: the idempotency key is `start:<taskId>:<proxyId>:<startedAt epoch ms>` (D3's prefix plus
+  the claim's timestamp) — Stripe stores the outcome of a key for 24 h (declines included) and
+  rejects a reused key with different parameters, so the bare D3 key would block the same proxy
+  from retrying the task for 24 h after the client fixes the card; the suffix is stable while one
+  claim lives (double-tap and retry reuse it) and changes after a release — cost if wrong: if the
+  owner wants the literal D3 key, a same-proxy retry within 24 h of a decline fails until the key
+  expires.
+- Ruling: `startedAt` is the claim timestamp; no `claimedAt` column is added — `start` = claim in
+  this flow and the cancel grace window already reads `startedAt` — cost if wrong: one extra
+  column later if "claimed" and "started" ever diverge.
+- Ruling: charge outcomes are classified in two buckets. **Definite failure** (PaymentIntent
+  returned with any status other than `succeeded`/`processing`, e.g. `requires_action` or
+  `requires_payment_method`; or a thrown `StripeCardError` / `StripeInvalidRequestError`) →
+  `releaseClaim`, client notification, 409 `PAYMENT_FAILED`. **Unknown outcome** (`processing`;
+  `StripeConnectionError`, `StripeAPIError`, `StripeRateLimitError`, `StripeIdempotencyError`,
+  anything else) → the claim is **kept**, no notification, 409 `PAYMENT_PENDING` — releasing on an
+  unknown outcome could let a second proxy charge the client again; the unknown outcome is settled
+  by the same proxy's retry (same key → Stripe replays the stored result), by the
+  `payment_intent.succeeded` / `payment_intent.payment_failed` webhooks (P1-T14, matched by
+  metadata), or by the client cancelling — cost if wrong: a task can sit `in_progress` without a
+  payment row until one of those happens.
+- Ruling: a CAS loss is not an error when the caller already holds the claim: `start` re-reads the
+  task + mapping; same proxy and a `succeeded` payment → 200 replay without a Stripe call; same
+  proxy and no succeeded payment → resume the charge with the stored `startedAt` (same key → same
+  PaymentIntent); anyone else → 400 `TASK_NOT_AVAILABLE` without a Stripe call. Because one key has
+  exactly one outcome, a release can never follow a succeeded charge of the same claim — cost if
+  wrong: a double-tap would show the proxy an error for a start that succeeded.
+- Ruling: no payment row exists before Stripe answers `succeeded`; `start` writes it through
+  `PaymentsRepository.recordSucceededCharge` (insert `ON CONFLICT ("paymentIntent") DO NOTHING`,
+  then back-fill a missing `chargeId`), which the `payment_intent.succeeded` webhook also uses, so
+  either writer can go first — a pending row would need the PaymentIntent id, which exists only
+  after the call — cost if wrong: a crash between a succeeded charge and the row write leaves the
+  row to the webhook (seconds to minutes).
+- Ruling: non-succeeded PaymentIntents are not cancelled (`paymentIntents.cancel` is not wrapped)
+  — a `requires_action` / `requires_payment_method` intent holds no funds and nobody but this API
+  can confirm it off-session — cost if wrong: orphan intents in the Stripe dashboard; adding a
+  cancel call later is one method.
+- Ruling: `PAYMENT_FAILED` keeps its code but becomes 409 (was 402) with D3's message; new
+  `PAYMENT_PENDING` 409; an owner without a saved card or Stripe customer is treated as a definite
+  charge failure (client notified, nothing written) instead of the old 404 `NO_SAVED_CARD_FOUND`
+  to the proxy — the proxy cannot fix the client's card and D3 asks for one proxy-facing error —
+  cost if wrong: Phase 3 copy keyed on 402 must switch to the error code (the app does not read
+  402 today).
+- Ruling: the client notification is an e-mail through the existing `NotificationService`
+  (new `sendCardChargeFailedEmail`), sent on every definite failure, wrapped in try/catch so a mail
+  failure never changes the proxy's response; no push in Phase 1 — it is the only channel the API
+  has today — cost if wrong: several proxies hitting the same broken card send several e-mails.
+- Ruling: `platformNet` is derived, not persisted: `computeCharge` returns it for bookkeeping/tests,
+  but it is not a column, not in `taskSelect`, not in any HTTP response — it is an exact identity of
+  two persisted columns and exposing the platform margin to clients is not wanted — cost if wrong:
+  a reporting query computes `"platformFee" - "stripeFee"`; adding a column later is a migration
+  with the same identity as backfill.
+- Ruling: `proxyEarnings = offeredPrice − platformFee` — for 2-dp prices it equals
+  `round(offeredPrice × 0.80)` (asserted per row in `money.spec.ts`) and makes
+  `platformFee + proxyEarnings === chargedAmount` exact by construction — cost if wrong: none for
+  2-dp inputs (Zod enforces `multipleOf(0.01)`).
+- Ruling: rounding is explicit `toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP)`; with 2-dp prices
+  `platformFee` can never land on a half centavo (the third decimal of `x × 0.20` is always even), so
+  the half-centavo case is tested on `stripeFee`: R$ 50.00 → 2.385 → **2.39** (banker's rounding
+  would give 2.38); R$ 20.03 keeps the round-up case for `platformFee` (4.006 → 4.01) — cost if
+  wrong: none, the table pins both.
+- Ruling: `/tasks/cancel` drops the `pending` branch — the new `start` never writes `pending`; only
+  rows created before this phase can be `pending`, and they get no Stripe call (Logger.warn) —
+  cost if wrong: a legacy `pending` intent that was in fact charged is refunded by hand in the
+  dashboard (pre-launch data only).
+- Ruling: `/tasks/cancel` refuses a `disputed` latest payment with 409 `PAYMENT_DISPUTED` before
+  any write — D6 as rewritten on 2026-11-23 blocks cancel as well as finish/validate — cost if
+  wrong: the client cannot cancel a disputed task until the dispute is closed.
+- Ruling: the `payment_intent.succeeded` webhook refunds a charge that lands on a task already
+  `canceled` (same key `task:<id>:refund` as cancel, so a refund already issued is replayed, not
+  duplicated); `payment_intent.payment_failed` without a payment row releases only the exact open
+  claim named by the intent's metadata (`taskId`, `proxyId`, `claimedAt`) — these close the
+  unknown-outcome bucket without a sweeper job — cost if wrong: a cancel and a late success
+  webhook interleaving in the same few milliseconds can still leave one charge for a manual refund
+  (logged at error level).
+- Ruling: no `capture_method` key is sent — D3 wants Stripe's default automatic capture, and the
+  P1-T03 spec asserts the key is absent so a manual-capture regression fails a test — cost if
+  wrong: none.
+- Ruling: the P1-T02 backfill fills missing fee columns of existing tasks with the new D1 model
+  (`chargedAmount = offeredPrice`, 20/80 split); completed tasks that already carry
+  `proxyEarnings` are left untouched — legacy in-flight tasks were charged `offeredPrice` by the
+  old code, which is exactly the new `chargedAmount` — cost if wrong: none for pre-launch data.
+- Ruling: the app type is `TChargePreview` (renamed from this plan's earlier `TPricePreview`) with
+  the same five numeric fields — the Phase 3 plan already consumes `TChargePreview` — cost if
+  wrong: one rename.
 
 ## Global constraints
 
@@ -44,10 +169,15 @@ cannot be `require`d by ts-jest). Node 26 locally.
   `P2023→400` mapping, fixed `test/factories/user.factory.ts`, `test/.env.test` untracked. Where this
   plan says "400 VALIDATION_FAILED", a Phase-0-less tree returns a 400 with another body — assert the
   status only if Phase 0 is not merged yet, and note it in STATUS.md.
-- Money: never `Number(decimal) * 100`. Only `Prisma.Decimal` (`mul`, `plus`, `div`,
-  `toDecimalPlaces(2)`), centavos only via `toCentavos()` from `src/common/money.ts` (D2).
-- Every status write goes through `TasksRepository.transition()` / `claimTask()` (CAS). No
-  `tasks.update({ where: { id } , data: { status } })` anywhere after this phase.
+- Money (D1, D2): the client pays `chargedAmount = offeredPrice`; `platformFee = 20 %`,
+  `proxyEarnings = 80 %`, `stripeFee = 3.99 % × chargedAmount + 0.39` (platform's cost). Never
+  `Number(decimal) * 100`. Only `Prisma.Decimal` (`mul`, `plus`, `minus`,
+  `toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP)`), centavos only via `toCentavos()` from
+  `src/common/money.ts`. The fee constants appear nowhere else.
+- Stripe (D3): automatic capture only. No `capture_method`, no `paymentIntents.capture`, no
+  authorisation hold anywhere in `src/`.
+- Every status write goes through `TasksRepository.transition()` / `claimTask()` / `releaseClaim()`
+  (CAS). No `tasks.update({ where: { id } , data: { status } })` anywhere after this phase.
 - Verification commands (PLAN.md §3), run before claiming a task done:
   - unit/types: `npx prisma generate && npx tsc --noEmit && npx jest`
   - e2e (Docker running): `npm run test:e2e` (or a single file:
@@ -61,23 +191,23 @@ cannot be `require`d by ts-jest). Node 26 locally.
 
 | ID | Title | Depends on | Register IDs | Verification (one command / spec name) |
 |---|---|---|---|---|
-| P1-T01 | `src/common/money.ts` — fee model D1 in `Prisma.Decimal` | — | BE-03, D1, D2 | `npx jest src/common/money.spec.ts --coverage --collectCoverageFrom=src/common/money.ts` (100 %) |
+| P1-T01 | `src/common/money.ts` — fee model D1 (client pays `offeredPrice`, 20/80 split) in `Prisma.Decimal` | — | BE-03, D1, D2 | `npx jest src/common/money.spec.ts --coverage --collectCoverageFrom=src/common/money.ts` (100 %) |
 | P1-T02 | Prisma migration `phase1_money_core` (fee columns, payment bookkeeping, `payoutIssue`, partial unique active card) | — | BE-20, BE-21, BE-32, D5 | `test/schema/phase1-constraints.e2e-spec.ts` |
-| P1-T03 | StripeService: SetupIntent, off-session hold/capture/cancel, idempotent refund/transfer, two webhook secrets; env; test doubles | — | BE-05, BE-06, BE-08, BE-10, BE-46 | `npx jest src/stripe/stripe.service.spec.ts` |
-| P1-T04 | Repositories: `TasksRepository.transition/claimTask/releaseClaim/recordTransfer`, `PaymentsRepository` latest-by-task/by-id, `PaymentsModule` export | P1-T02 | BE-02, BE-21, BE-36 (payments part) | `test/tasks/tasks-repository.e2e-spec.ts` |
+| P1-T03 | StripeService: SetupIntent, off-session create+confirm PaymentIntent (automatic capture), idempotent refund/transfer, two webhook secrets; env; test doubles | — | BE-05, BE-06, BE-08, BE-10, BE-46 | `npx jest src/stripe/stripe.service.spec.ts` |
+| P1-T04 | Repositories: `TasksRepository.transition/claimTask/releaseClaim/recordTransfer`, `PaymentsRepository` latest-by-task/by-intent/`recordSucceededCharge`, `PaymentsModule` export | P1-T02 | BE-02, BE-21, BE-36 (payments part) | `test/tasks/tasks-repository.e2e-spec.ts` |
 | P1-T05 | Cards via SetupIntent: `POST /card/setup-intent`, `POST /card/create { paymentMethodId }`, replace-in-transaction, detach previous | P1-T02, P1-T03 | BE-32, BE-05 (card part), D3 | `test/cards/setup-intent.e2e-spec.ts`, `test/cards/create-card.e2e-spec.ts` |
-| P1-T06 | `POST /tasks/create`: strict Zod bounds, CLIENT-only, card before insert, fees persisted in one transaction, shared `taskSelect` | P1-T01, P1-T04, P1-T05 | BE-09, BE-19, BE-03, BE-39 (money path) | `test/tasks/create-task.e2e-spec.ts` |
+| P1-T06 | `POST /tasks/create`: strict Zod bounds (20–10 000), CLIENT-only, card before insert, fees persisted in one transaction, shared `taskSelect` | P1-T01, P1-T04, P1-T05 | BE-09, BE-19, BE-03, BE-39 (money path) | `test/tasks/create-task.e2e-spec.ts` |
 | P1-T07 | `GET /tasks/price-preview?offeredPrice=` | P1-T01 | APP-04 (backend half), D2 | `test/tasks/price-preview.e2e-spec.ts` |
-| P1-T08 | `POST /tasks/start`: hold → CAS claim → capture; `requires_action` removed | P1-T03, P1-T04, P1-T06 | BE-02, BE-03, BE-05, BE-08, CON-01, REL-03, D3 | `test/tasks/start-task.e2e-spec.ts` |
+| P1-T08 | `POST /tasks/start`: CAS claim → charge (automatic capture) → payment row; definite failure releases + notifies client; `requires_action` removed | P1-T03, P1-T04, P1-T06 | BE-02, BE-03, BE-05, BE-08, CON-01, REL-03, D3 | `test/tasks/start-task.e2e-spec.ts` |
 | P1-T09 | `ProofStorage` port + `LocalDiskProofStorage` + `S3ProofStorage` + `StorageModule` + env | — | BE-18, D19, D25 | `npx jest src/storage` |
 | P1-T10 | Proof image pipeline: magic bytes (`file-type`), HEIC→JPEG (`heic-convert`), normalise (`sharp`) | — | BE-18, CON-11, D19 | `npx jest src/modules/tasks/utils/proof-image.spec.ts` |
 | P1-T11 | `POST /tasks/finish` (proof mandatory, disputed block, CAS) + `GET /tasks/:id/proof` streams from storage | P1-T04, P1-T09, P1-T10 | BE-18, BE-02, BE-46 (dead branch), D6, D19 | `test/tasks/finish-task.e2e-spec.ts`, `test/tasks/fetch-task-proof.e2e-spec.ts` |
-| P1-T12 | `POST /tasks/validate`: payment-checked, CAS first, `source_transaction` transfer, one transaction for transferId/counter/wallet | P1-T01, P1-T03, P1-T04 | BE-01, BE-06, BE-08, BE-20, D4, D6 | `test/tasks/validate-task.e2e-spec.ts` |
-| P1-T13 | `POST /tasks/cancel`: CAS first, branch on latest payment, accept refund `pending`, full refund | P1-T03, P1-T04 | BE-07, BE-21, BE-02, D7 | `test/tasks/cancel-task.e2e-spec.ts` |
-| P1-T14 | Webhooks I: dedupe-first dispatch, `payment_intent.succeeded` stores `chargeId`, guarded `payment_failed`, `charge.refunded` keeps `refundId` | P1-T02, P1-T03, P1-T04 | BE-23, BE-22, BE-21, BE-08, BE-10 | `test/stripe-webhook/stripe-webhook.e2e-spec.ts` |
+| P1-T12 | `POST /tasks/validate`: payment-checked, CAS first, `source_transaction` transfer of `proxyEarnings` (80 %), one transaction for transferId/counter/wallet | P1-T01, P1-T03, P1-T04 | BE-01, BE-06, BE-08, BE-20, D4, D6 | `test/tasks/validate-task.e2e-spec.ts` |
+| P1-T13 | `POST /tasks/cancel`: disputed block, CAS first, full refund of a succeeded charge, accept refund `pending` | P1-T03, P1-T04 | BE-07, BE-21, BE-02, D6, D7 | `test/tasks/cancel-task.e2e-spec.ts` |
+| P1-T14 | Webhooks I: dedupe-first dispatch, idempotent `payment_intent.succeeded` row write (+ refund on a canceled task), guarded `payment_failed` (+ open-claim release), `charge.refunded` keeps `refundId` | P1-T02, P1-T03, P1-T04 | BE-23, BE-22, BE-21, BE-08, BE-10 | `test/stripe-webhook/stripe-webhook.e2e-spec.ts` |
 | P1-T15 | Webhooks II: `payout.failed` → `payoutIssue`, dispute persists `disputeId`, `account.updated` guard + clears flag; dead Stripe methods removed | P1-T02, P1-T03 | BE-24, BE-25, BE-46, D5, D6 | `test/stripe-webhook/stripe-webhook.e2e-spec.ts` (new cases) |
 | P1-T16 | Daily auto-release job (`@nestjs/schedule`) | P1-T12 | D18, APP-30 (backend half) | `test/tasks/auto-release.e2e-spec.ts` |
-| P1-T17 | Rewrite `proxy-api/CLAUDE.md` sections (Stripe Connect, webhooks, 3DS, Database models, routes, env) | P1-T01…T16 | BE-47 (money sections) | `grep -c requires_action CLAUDE.md` → `0` |
+| P1-T17 | Rewrite `proxy-api/CLAUDE.md` sections (Stripe Connect, webhooks, card authentication, Database models, routes, env) | P1-T01…T16 | BE-47 (money sections) | `grep -c requires_action CLAUDE.md` → `0` and `grep -c capture_method CLAUDE.md` → `0` |
 | P1-T18 | App wire types follow the new contract (types only + one dead branch) | P1-T05, P1-T07, P1-T08 | CON-01, CON-10 (types), APP-03 (type half) | `cd ../proxy-app && npx tsc --noEmit && npx eslint .` |
 
 Register IDs in scope but not placed: **BE-35** (`update-profile` null coercion) — no Phase 1 task
@@ -86,22 +216,32 @@ also stays in Phase 2 as listed in PLAN.md; P1-T08 keeps `USER_NOT_PROXY` for th
 
 ## Review focus
 
-Five inputs no reviewer should accept this phase without seeing tested:
+Six inputs no reviewer should accept this phase without seeing tested:
 
-1. **Half-centavo rounding of the platform fee** — `offeredPrice = 10.03` gives `platformFee =
-   2.006 → 2.01` (ROUND_HALF_UP), `chargedAmount = 12.95`, `stripeFee = 0.91`, Stripe `amount =
-   1295`; the stripe-fee identity `round(charged × 0.0399 + 0.39, 2) === stripeFee` must hold.
-   Owned by P1-T01 (`money.spec.ts` table) and P1-T08 (`amount: 1295`).
-2. **Same proxy double-taps "Aceitar"** — both requests get the *same* PaymentIntent (same
-   idempotency key); the CAS loser must **not** cancel the hold the winner is about to capture.
-   Owned by P1-T08 ("same proxy, two concurrent starts" case: one capture, zero cancels).
-3. **`payment_intent.succeeded` arrives before the capture response** — the webhook writes
-   `succeeded + chargeId` first; `start` then writes the same values; no second row, no overwrite
-   with `null`. Owned by P1-T14 (idempotent succeeded handler) and P1-T08 (chargeId from capture).
-4. **Legacy `succeeded` payment with `chargeId = null`** (rows created before this phase) — validate
+1. **Rounding** — R$ 50.00 gives a raw Stripe fee of 2.385 → `stripeFee = 2.39` (ROUND_HALF_UP;
+   banker's rounding would give 2.38); R$ 20.03 gives `platformFee = 4.006 → 4.01`,
+   `proxyEarnings = 16.02`, `chargedAmount = 20.03`, Stripe `amount = 2003`, transfer `1602`;
+   `platformFee + proxyEarnings === chargedAmount === offeredPrice` on every row. Owned by P1-T01
+   (`money.spec.ts` table), P1-T06 (persisted values) and P1-T08 (`amount: 2001` for the
+   float-artefact price 20.01).
+2. **Two proxies race for one task** — the CAS claim picks one winner *before* Stripe is called;
+   the loser gets 400 `TASK_NOT_AVAILABLE` and makes **zero** Stripe calls, so `chargeSavedCard`
+   runs exactly once and the client is charged once. Owned by P1-T04 (concurrent `claimTask`) and
+   P1-T08 ("two different proxies" case).
+3. **Same proxy double-taps "Aceitar" or retries after an unknown outcome** — both requests use the
+   same key `start:<taskId>:<proxyId>:<startedAt ms>`, Stripe returns the same PaymentIntent, one
+   payment row is written, and no request releases a claim whose charge succeeded; an unknown
+   outcome (`StripeConnectionError`, `processing`) keeps the claim and answers `PAYMENT_PENDING`.
+   Owned by P1-T08 ("same proxy double-tap", "Stripe unreachable then retry") and P1-T04
+   (`recordSucceededCharge` idempotent under concurrency).
+4. **`payment_intent.succeeded` races the start response** — whichever writes first, there is one
+   row with `status = 'succeeded'` and a non-null `chargeId`; a success that lands on a `canceled`
+   task is refunded; `payment_failed` releases only the exact open claim named by metadata. Owned by
+   P1-T14.
+5. **Legacy `succeeded` payment with `chargeId = null`** (rows created before this phase) — validate
    must refuse with `PAYMENT_NOT_CONFIRMED` rather than call `transfers.create` without
    `source_transaction`. Owned by P1-T12.
-5. **Auto-release meets a disputed or unconfirmed payment** — the job must skip the task (validate
+6. **Auto-release meets a disputed or unconfirmed payment** — the job must skip the task (validate
    throws 409) and continue with the next one, never crash the batch. Owned by P1-T16.
 
 ---
@@ -124,66 +264,75 @@ Five inputs no reviewer should accept this phase without seeing tested:
   export const PLATFORM_FEE_RATE = new Prisma.Decimal('0.20')
   export const STRIPE_FEE_RATE = new Prisma.Decimal('0.0399')
   export const STRIPE_FEE_FIXED = new Prisma.Decimal('0.39')
-  export const MIN_OFFERED_PRICE = 10
+  export const MIN_OFFERED_PRICE = 20
   export const MAX_OFFERED_PRICE = 10_000
   export type ChargeBreakdown = {
     offeredPrice: Prisma.Decimal; platformFee: Prisma.Decimal; stripeFee: Prisma.Decimal
     chargedAmount: Prisma.Decimal; proxyEarnings: Prisma.Decimal
+    platformNet: Prisma.Decimal   // bookkeeping only: never persisted, never sent over HTTP
   }
   export function computeCharge(offeredPrice: Prisma.Decimal | number | string): ChargeBreakdown
   export function toCentavos(value: Prisma.Decimal): number
   export function breakdownToNumbers(b: ChargeBreakdown): { offeredPrice: number; platformFee: number; stripeFee: number; chargedAmount: number; proxyEarnings: number }
+    // exactly these five keys; platformNet is dropped on purpose
   ```
 - Algorithm (fixed by D1; the only place these constants appear):
   ```ts
+  const HALF_UP = Prisma.Decimal.ROUND_HALF_UP
   const price = new Prisma.Decimal(offeredPrice)
-  const platformFee = price.mul(PLATFORM_FEE_RATE).toDecimalPlaces(2)
-  const chargedAmount = price.plus(platformFee).plus(STRIPE_FEE_FIXED)
-    .div(new Prisma.Decimal(1).minus(STRIPE_FEE_RATE))      // ÷ 0.9601
-    .toDecimalPlaces(2)
-  const stripeFee = chargedAmount.minus(price).minus(platformFee)
-  const proxyEarnings = price
-  // toCentavos: value.mul(100).toDecimalPlaces(0).toNumber()
+  const chargedAmount = price                                      // the client pays exactly what they typed
+  const platformFee = price.mul(PLATFORM_FEE_RATE).toDecimalPlaces(2, HALF_UP)
+  const proxyEarnings = price.minus(platformFee)                   // = round(price × 0.80) for 2-dp prices; split is exact
+  const stripeFee = chargedAmount.mul(STRIPE_FEE_RATE).plus(STRIPE_FEE_FIXED).toDecimalPlaces(2, HALF_UP)
+  const platformNet = platformFee.minus(stripeFee)
+  // toCentavos: value.mul(100).toDecimalPlaces(0, HALF_UP).toNumber()
   ```
 
-- [ ] **Step 1: Write the failing test** `src/common/money.spec.ts`:
+- [ ] **Step 1: Write the failing test** `src/common/money.spec.ts` (values computed with Python
+  `decimal`, `ROUND_HALF_UP`, 2 dp):
   ```ts
   describe('computeCharge', () => {
     it.each([
-      // price,      platformFee, stripeFee, chargedAmount, centavos
-      ['100',        '20.00',     '5.39',    '125.39',      12539],
-      ['10.03',      '2.01',      '0.91',    '12.95',       1295],
-      ['19.99',      '4.00',      '1.40',    '25.39',       2539],
-      ['10',         '2.00',      '0.90',    '12.90',       1290],
-      ['10000',      '2000.00',   '499.10',  '12499.10',    1249910],
-      ['49.90',      '9.98',      '2.89',    '62.77',       6277],
-    ])('price %s', (price, platformFee, stripeFee, chargedAmount, centavos) => {
+      // price,    platformFee, stripeFee, chargedAmount, proxyEarnings, platformNet, chargedCentavos, earningsCentavos
+      ['100',      '20.00',     '4.38',    '100.00',      '80.00',       '15.62',     10000,           8000],
+      ['20.03',    '4.01',      '1.19',    '20.03',       '16.02',       '2.82',      2003,            1602],   // platformFee 4.006 → 4.01
+      ['20',       '4.00',      '1.19',    '20.00',       '16.00',       '2.81',      2000,            1600],   // MIN_OFFERED_PRICE
+      ['50',       '10.00',     '2.39',    '50.00',       '40.00',       '7.61',      5000,            4000],   // stripeFee 2.385 → 2.39 (half-up, not half-even)
+      ['49.90',    '9.98',      '2.38',    '49.90',       '39.92',       '7.60',      4990,            3992],
+      ['33.33',    '6.67',      '1.72',    '33.33',       '26.66',       '4.95',      3333,            2666],
+      ['1234.56',  '246.91',    '49.65',   '1234.56',     '987.65',      '197.26',    123456,          98765],
+      ['10000',    '2000.00',   '399.39',  '10000.00',    '8000.00',     '1600.61',   1000000,         800000], // MAX_OFFERED_PRICE
+    ])('price %s', (price, platformFee, stripeFee, chargedAmount, proxyEarnings, platformNet, chargedCentavos, earningsCentavos) => {
       const b = computeCharge(price)
       expect(b.platformFee.toFixed(2)).toBe(platformFee)
       expect(b.stripeFee.toFixed(2)).toBe(stripeFee)
       expect(b.chargedAmount.toFixed(2)).toBe(chargedAmount)
-      expect(b.proxyEarnings.toFixed(2)).toBe(new Prisma.Decimal(price).toFixed(2))
-      expect(toCentavos(b.chargedAmount)).toBe(centavos)
-      // stripe identity: 3.99 % of the charged total + R$ 0,39
-      expect(b.chargedAmount.mul('0.0399').plus('0.39').toDecimalPlaces(2).toFixed(2)).toBe(stripeFee)
-      // the three parts sum exactly to the charged amount
-      expect(b.offeredPrice.plus(b.platformFee).plus(b.stripeFee).toFixed(2)).toBe(chargedAmount)
+      expect(b.proxyEarnings.toFixed(2)).toBe(proxyEarnings)
+      expect(b.platformNet.toFixed(2)).toBe(platformNet)
+      expect(toCentavos(b.chargedAmount)).toBe(chargedCentavos)
+      expect(toCentavos(b.proxyEarnings)).toBe(earningsCentavos)
+      // D1 identities
+      expect(b.chargedAmount.toFixed(2)).toBe(new Prisma.Decimal(price).toFixed(2))                 // client pays exactly offeredPrice
+      expect(b.proxyEarnings.toFixed(2)).toBe(new Prisma.Decimal(price).mul('0.80').toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP).toFixed(2))
+      expect(b.platformFee.plus(b.proxyEarnings).toFixed(2)).toBe(chargedAmount)                     // the split is exact
+      expect(b.chargedAmount.mul('0.0399').plus('0.39').toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP).toFixed(2)).toBe(stripeFee)
+      expect(b.platformFee.minus(b.stripeFee).toFixed(2)).toBe(platformNet)
     })
     it('accepts Decimal and number inputs', () => {
-      expect(computeCharge(new Prisma.Decimal('100')).chargedAmount.toFixed(2)).toBe('125.39')
-      expect(computeCharge(100).chargedAmount.toFixed(2)).toBe('125.39')
+      expect(computeCharge(new Prisma.Decimal('100')).proxyEarnings.toFixed(2)).toBe('80.00')
+      expect(computeCharge(100).stripeFee.toFixed(2)).toBe('4.38')
     })
   })
   describe('toCentavos', () => {
     it('never produces a float artefact', () => {
-      expect(toCentavos(new Prisma.Decimal('10.03'))).toBe(1003)   // 10.03 * 100 === 1002.9999999999999 in JS
-      expect(Number.isInteger(toCentavos(new Prisma.Decimal('0.29')))).toBe(true)
+      expect(toCentavos(new Prisma.Decimal('20.01'))).toBe(2001)   // 20.01 * 100 === 2001.0000000000002 in JS
+      expect(Number.isInteger(toCentavos(new Prisma.Decimal('0.29')))).toBe(true)   // 0.29 * 100 === 28.999999999999996
     })
   })
   describe('breakdownToNumbers', () => {
-    it('returns plain numbers for the HTTP layer', () => {
+    it('returns the five plain numbers for the HTTP layer (no platformNet)', () => {
       expect(breakdownToNumbers(computeCharge('100'))).toEqual({
-        offeredPrice: 100, platformFee: 20, stripeFee: 5.39, chargedAmount: 125.39, proxyEarnings: 100,
+        offeredPrice: 100, platformFee: 20, stripeFee: 4.38, chargedAmount: 100, proxyEarnings: 80,
       })
     })
   })
@@ -195,7 +344,7 @@ Five inputs no reviewer should accept this phase without seeing tested:
   `Decimal` declaration fixes listed under Files if `npx tsc --noEmit --skipLibCheck false` still
   reports `Cannot find name 'Decimal'`.
 - [ ] **Step 4: Run it, expect pass** — `npx jest src/common/money.spec.ts --coverage
-  --collectCoverageFrom=src/common/money.ts` → `Tests: 9 passed`, `money.ts | 100 | 100 | 100 | 100`.
+  --collectCoverageFrom=src/common/money.ts` → `Tests: 11 passed`, `money.ts | 100 | 100 | 100 | 100`.
 - [ ] **Step 5: Verify the repo gate** — `npx tsc --noEmit && npx jest` (the unit factory change
   must not break existing specs: `makeTaskDetails` consumers compare with `toMatchObject`, and
   `validate-task.service.spec.ts` still asserts the old `7562` — it is rewritten in P1-T12; if the
@@ -227,6 +376,7 @@ Five inputs no reviewer should accept this phase without seeing tested:
   locationLng   Decimal  @db.Decimal(9, 6)
   stripeFee     Decimal? @db.Decimal(10, 2)
   chargedAmount Decimal? @db.Decimal(10, 2)
+  // (no platformNet column: it is derived as platformFee − stripeFee, see the Amendments rulings)
   // Payments
   chargeId  String?
   disputeId String?
@@ -242,13 +392,19 @@ Five inputs no reviewer should accept this phase without seeing tested:
     ORDER BY "userId", "createdAt" DESC
   );
   CREATE UNIQUE INDEX "cards_one_active_per_user" ON "cards" ("userId") WHERE "isDeleted" = false;
-  -- backfill fee columns for existing tasks with the D1 model (only where missing)
+  -- backfill fee columns for existing tasks with the D1 model (only where missing):
+  -- client pays offeredPrice, platform 20 %, proxy 80 %, Stripe fee 3.99 % + 0.39 on the charge
+  -- (Postgres ROUND(numeric, 2) rounds half away from zero = ROUND_HALF_UP for positive amounts)
   UPDATE "tasks" SET "platformFee" = ROUND("offeredPrice" * 0.20, 2) WHERE "platformFee" IS NULL;
-  UPDATE "tasks" SET "proxyEarnings" = "offeredPrice" WHERE "proxyEarnings" IS NULL;
-  UPDATE "tasks" SET "chargedAmount" = ROUND(("offeredPrice" + "platformFee" + 0.39) / 0.9601, 2) WHERE "chargedAmount" IS NULL;
-  UPDATE "tasks" SET "stripeFee" = "chargedAmount" - "offeredPrice" - "platformFee" WHERE "stripeFee" IS NULL;
+  UPDATE "tasks" SET "proxyEarnings" = "offeredPrice" - "platformFee" WHERE "proxyEarnings" IS NULL;
+  UPDATE "tasks" SET "chargedAmount" = "offeredPrice" WHERE "chargedAmount" IS NULL;
+  UPDATE "tasks" SET "stripeFee" = ROUND("chargedAmount" * 0.0399 + 0.39, 2) WHERE "stripeFee" IS NULL;
   ```
-  Completed tasks that already have `proxyEarnings` (old model, e.g. 75.62) are left untouched.
+  For R$ 100.00 the backfill writes platformFee 20.00, proxyEarnings 80.00, chargedAmount 100.00,
+  stripeFee 4.38 (same as `computeCharge`). Completed tasks that already have `proxyEarnings` (old
+  model, e.g. 75.62) are left untouched. Legacy in-flight tasks were charged `offeredPrice` by the
+  old start code, which equals the new `chargedAmount`, so their 80 % transfer at validate is
+  consistent with what was charged.
 
 - [ ] **Step 1: Write the failing test** `test/schema/phase1-constraints.e2e-spec.ts` (uses
   `createTestApp/resetDatabase`, `createUser`, `createTask`):
@@ -265,8 +421,8 @@ Five inputs no reviewer should accept this phase without seeing tested:
   it('rejects two payments for the same PaymentIntent', async () => {
     const owner = await createUser(ctx.app, ctx.prisma)
     const task = await createTask(ctx.prisma, owner.id)
-    await ctx.prisma.payments.create({ data: { taskId: task.id, paymentIntent: 'pi_dup', amount: 125.39 } })
-    await expect(ctx.prisma.payments.create({ data: { taskId: task.id, paymentIntent: 'pi_dup', amount: 125.39 } }))
+    await ctx.prisma.payments.create({ data: { taskId: task.id, paymentIntent: 'pi_dup', amount: 100 } })
+    await expect(ctx.prisma.payments.create({ data: { taskId: task.id, paymentIntent: 'pi_dup', amount: 100 } }))
       .rejects.toMatchObject({ code: 'P2002' })
   })
   it('exposes the new columns with their defaults', async () => {
@@ -296,7 +452,7 @@ Five inputs no reviewer should accept this phase without seeing tested:
 
 ---
 
-### Task P1-T03: StripeService — SetupIntent, off-session hold/capture, idempotent refund/transfer, two webhook secrets, test doubles
+### Task P1-T03: StripeService — SetupIntent, off-session charge with automatic capture, idempotent refund/transfer, two webhook secrets, test doubles
 
 **Files:**
 - Modify: `src/env/env.ts:11-13` (`STRIPE_PUBLIC_KEY` → `.optional()`, add
@@ -306,7 +462,8 @@ Five inputs no reviewer should accept this phase without seeing tested:
 - Modify: `src/stripe/stripe.module.ts:13-25` (third provider `'STRIPE_CONNECT_WEBHOOK_SECRET'` →
   `env.get('STRIPE_CONNECT_WEBHOOK_SECRET') ?? null`).
 - Modify: `src/stripe/stripe.service.ts:14-31` (constructor + `constructWebhookEvent`), `:63-101`
-  (add new methods; keep the legacy ones listed below until their last caller is migrated).
+  (add the four new methods below; keep the legacy ones listed below until their last caller is
+  migrated).
 - Modify: `src/stripe/types/index.d.ts:1-5` (replace `CreatePaymentIntentData`).
 - Create: `src/stripe/stripe.service.spec.ts`
 - Modify: `test/mocks/stripe.service.mock.ts:3-35`
@@ -323,20 +480,28 @@ Five inputs no reviewer should accept this phase without seeing tested:
   createSetupIntent(customer: string): Promise<Stripe.SetupIntent>
     // setupIntents.create({ customer, usage: 'off_session', payment_method_types: ['card'] })
   chargeSavedCard(data: ChargeSavedCardData, idempotencyKey: string): Promise<Stripe.PaymentIntent>
+    // creates AND confirms in one call, automatic capture (D3):
     // paymentIntents.create({ amount, currency: 'brl', customer, payment_method: paymentMethod,
-    //   payment_method_types: ['card'], confirm: true, off_session: true, capture_method: 'manual',
-    //   transfer_group: taskId, metadata: { taskId } }, { idempotencyKey })
-  capturePaymentIntent(paymentIntentId: string): Promise<Stripe.PaymentIntent>   // paymentIntents.capture(id)
-  cancelPaymentIntent(paymentIntentId: string): Promise<Stripe.PaymentIntent>    // paymentIntents.cancel(id)
+    //   payment_method_types: ['card'], confirm: true, off_session: true,
+    //   transfer_group: taskId, metadata: { taskId, proxyId, claimedAt } }, { idempotencyKey })
+    // NO `capture_method` key (Stripe's default automatic capture: a `succeeded` answer is a final charge;
+    // the funds sit in the platform balance until P1-T12 transfers them)
   refundPaymentIntent(paymentIntentId: string, idempotencyKey: string): Promise<Stripe.Refund>
-    // refunds.create({ payment_intent }, { idempotencyKey })
+    // refunds.create({ payment_intent }, { idempotencyKey })   — no `amount`: always the full charge (D7)
   createTransferFromCharge(data: CreateTransferData, idempotencyKey: string): Promise<Stripe.Transfer>
     // transfers.create({ amount, currency: 'brl', destination, source_transaction: sourceTransaction,
     //   transfer_group: transferGroup, metadata: { taskId } }, { idempotencyKey })
   ```
+  There is no capture, cancel-intent or hold method: D3 forbids manual capture, and a
+  non-succeeded intent holds no funds, so nothing needs releasing on Stripe.
   `src/stripe/types/index.d.ts`:
   ```ts
-  export type ChargeSavedCardData = { amount: number; customer: string; paymentMethod: string; taskId: string }
+  export type ChargeSavedCardData = {
+    amount: number              // centavos, from toCentavos(chargedAmount)
+    customer: string; paymentMethod: string
+    taskId: string; proxyId: string
+    claimedAt: string           // ISO of the claim's Tasks.startedAt; lets P1-T14 match a webhook to the exact claim
+  }
   export type CreateTransferData = { amount: number; destination: string; sourceTransaction: string; transferGroup: string; taskId: string }
   ```
   Legacy methods kept **for now** and deleted by the task that migrates their last caller:
@@ -348,36 +513,38 @@ Five inputs no reviewer should accept this phase without seeing tested:
   ```ts
   createSetupIntent: { id: 'seti_test_123', client_secret: 'seti_test_123_secret_abc' }
   retrievePaymentMethod: { id: 'pm_test_123', customer: 'cus_test_default', card: { brand: 'visa', last4: '4242' } }
-  chargeSavedCard: { id: 'pi_test_123', status: 'requires_capture', latest_charge: null }
-  capturePaymentIntent: { id: 'pi_test_123', status: 'succeeded', latest_charge: 'ch_test_123' }
-  cancelPaymentIntent: { id: 'pi_test_123', status: 'canceled' }
+  chargeSavedCard: { id: 'pi_test_123', status: 'succeeded', latest_charge: 'ch_test_123' }
   refundPaymentIntent: { id: 're_test_123', status: 'succeeded' }
   createTransferFromCharge: { id: 'tr_test_123' }
   detachPaymentMethod: { id: 'pm_test_123' }     // unchanged
   ```
   (keep the legacy mocks until their methods are deleted.)
 - Produces (`test/factories/task.factory.ts`): `CreateTaskOverrides` gains `proxyEarnings?`,
-  `platformFee?`, `stripeFee?`, `chargedAmount?` (numbers), `proofImageUrl?: string | null`,
-  `transferId?: string | null`, `payout_failed` in the status union; defaults for the four fee fields
-  come from `computeCharge(overrides.offeredPrice ?? 50)` (`breakdownToNumbers`) so seeded tasks look
-  like created ones (for 50: platformFee 10, stripeFee 2.90, chargedAmount 62.90).
+  `platformFee?`, `stripeFee?`, `chargedAmount?` (each `number | null`; `null` seeds a legacy row
+  without stored fees), `proofImageUrl?: string | null`, `transferId?: string | null`,
+  `payout_failed` in the status union; defaults for the four fee fields come from
+  `computeCharge(overrides.offeredPrice ?? 50)` (`breakdownToNumbers`) so seeded tasks look like
+  created ones (for 50: platformFee 10.00, stripeFee 2.39, chargedAmount 50.00, proxyEarnings 40.00).
 - Produces (`test/factories/payment.factory.ts`):
   ```ts
   export const createPayment = (prisma: PrismaService, taskId: string, overrides: {
     paymentIntent?: string; status?: 'pending' | 'succeeded' | 'failed' | 'refunded' | 'disputed'
     amount?: number; chargeId?: string | null; refundId?: string | null; disputeId?: string | null; createdAt?: Date
   } = {}) => prisma.payments.create({ data: {
-    taskId, paymentIntent: overrides.paymentIntent ?? 'pi_test_123', status: overrides.status ?? 'pending',
-    amount: overrides.amount ?? 125.39,
-    chargeId: overrides.chargeId === undefined ? (overrides.status === 'succeeded' ? 'ch_test_123' : null) : overrides.chargeId,
+    taskId, paymentIntent: overrides.paymentIntent ?? 'pi_test_123', status: overrides.status ?? 'succeeded',
+    amount: overrides.amount ?? 50,   // = chargedAmount of the task factory default (offeredPrice 50)
+    chargeId: overrides.chargeId === undefined ? ((overrides.status ?? 'succeeded') === 'succeeded' ? 'ch_test_123' : null) : overrides.chargeId,
     refundId: overrides.refundId ?? null, disputeId: overrides.disputeId ?? null,
     ...(overrides.createdAt && { createdAt: overrides.createdAt }),
   } })
   ```
+  The default status is `succeeded` because that is the only status the new `start` writes;
+  `pending` is seeded explicitly to represent rows created before this phase.
 
 - [ ] **Step 1: Write the failing test** `src/stripe/stripe.service.spec.ts` (construct the service
-  directly with `'sk_test_x'`; replace the SDK resources with `jest.fn()` through
-  `(service as any).stripe = { webhooks: { constructEvent }, paymentIntents: { create, capture, cancel }, setupIntents: { create }, refunds: { create }, transfers: { create } }`):
+  directly with `'sk_test_x'`, `'whsec_platform'`, `'whsec_connect'`; replace the SDK resources with
+  `jest.fn()` through
+  `(service as any).stripe = { webhooks: { constructEvent }, paymentIntents: { create }, setupIntents: { create: setupIntentsCreate }, refunds: { create: refundsCreate }, transfers: { create: transfersCreate } }`):
   ```ts
   it('verifies with the platform secret first', () => {
     constructEvent.mockReturnValueOnce({ id: 'evt_1' })
@@ -397,36 +564,43 @@ Five inputs no reviewer should accept this phase without seeing tested:
     expect(() => svc.constructWebhookEvent('{}', 'sig')).toThrow('bad sig')
     expect(constructEvent).toHaveBeenCalledTimes(1)
   })
-  it('creates an off-session manual-capture PaymentIntent with the idempotency key', async () => {
-    await service.chargeSavedCard({ amount: 12539, customer: 'cus_1', paymentMethod: 'pm_1', taskId: 't1' }, 'task:t1:pi:p1:1')
+  it('creates and confirms an off-session PaymentIntent with automatic capture and the idempotency key', async () => {
+    await service.chargeSavedCard(
+      { amount: 10000, customer: 'cus_1', paymentMethod: 'pm_1', taskId: 't1', proxyId: 'p1', claimedAt: '2026-11-23T12:00:00.000Z' },
+      'start:t1:p1:1795435200000')
     expect(create).toHaveBeenCalledWith({
-      amount: 12539, currency: 'brl', customer: 'cus_1', payment_method: 'pm_1', payment_method_types: ['card'],
-      confirm: true, off_session: true, capture_method: 'manual', transfer_group: 't1', metadata: { taskId: 't1' },
-    }, { idempotencyKey: 'task:t1:pi:p1:1' })
+      amount: 10000, currency: 'brl', customer: 'cus_1', payment_method: 'pm_1', payment_method_types: ['card'],
+      confirm: true, off_session: true, transfer_group: 't1',
+      metadata: { taskId: 't1', proxyId: 'p1', claimedAt: '2026-11-23T12:00:00.000Z' },
+    }, { idempotencyKey: 'start:t1:p1:1795435200000' })
+    expect(create.mock.calls[0][0]).not.toHaveProperty('capture_method')   // D3: automatic capture only
   })
   it('creates a SetupIntent for off-session usage', async () => {
     await service.createSetupIntent('cus_1')
     expect(setupIntentsCreate).toHaveBeenCalledWith({ customer: 'cus_1', usage: 'off_session', payment_method_types: ['card'] })
   })
   it('creates transfers from the charge with group and idempotency key', async () => {
-    await service.createTransferFromCharge({ amount: 10000, destination: 'acct_1', sourceTransaction: 'ch_1', transferGroup: 't1', taskId: 't1' }, 'task:t1:transfer')
-    expect(transfersCreate).toHaveBeenCalledWith({ amount: 10000, currency: 'brl', destination: 'acct_1', source_transaction: 'ch_1', transfer_group: 't1', metadata: { taskId: 't1' } }, { idempotencyKey: 'task:t1:transfer' })
+    await service.createTransferFromCharge({ amount: 8000, destination: 'acct_1', sourceTransaction: 'ch_1', transferGroup: 't1', taskId: 't1' }, 'task:t1:transfer')
+    expect(transfersCreate).toHaveBeenCalledWith({ amount: 8000, currency: 'brl', destination: 'acct_1', source_transaction: 'ch_1', transfer_group: 't1', metadata: { taskId: 't1' } }, { idempotencyKey: 'task:t1:transfer' })
   })
-  it('refunds by PaymentIntent with the idempotency key', async () => {
+  it('refunds by PaymentIntent with the idempotency key and no amount (full refund)', async () => {
     await service.refundPaymentIntent('pi_1', 'task:t1:refund')
     expect(refundsCreate).toHaveBeenCalledWith({ payment_intent: 'pi_1' }, { idempotencyKey: 'task:t1:refund' })
   })
   ```
 - [ ] **Step 2: Run it, expect failure** — `npx jest src/stripe/stripe.service.spec.ts` → TS error
   `Expected 2 arguments, but got 3` / `Property 'chargeSavedCard' does not exist`.
-- [ ] **Step 3: Implement** the constructor, `constructWebhookEvent` fallback and the six new methods
-  in `src/stripe/stripe.service.ts`; the module provider and env changes; the mock, the two factories
-  and the `global-setup` env line. `createStripeServiceMock` must list every public method of the
-  service (old and new) or `overrideProvider` leaves `undefined` functions.
+- [ ] **Step 3: Implement** the constructor, `constructWebhookEvent` fallback and the four new
+  methods (`createSetupIntent`, `chargeSavedCard`, `refundPaymentIntent`,
+  `createTransferFromCharge`) in `src/stripe/stripe.service.ts`; the module provider and env
+  changes; the mock, the two factories and the `global-setup` env line. `createStripeServiceMock`
+  must list every public method of the service (old and new) or `overrideProvider` leaves
+  `undefined` functions. Confirm `grep -rn "capture_method\|paymentIntents.capture" src` prints
+  nothing.
 - [ ] **Step 4: Run it, expect pass** — `Tests: 7 passed`.
 - [ ] **Step 5: Verify the repo gate** — `npx tsc --noEmit && npx jest && npm run test:e2e` (nothing
   functional changed for existing routes; factories keep their defaults).
-- [ ] **Step 6: Mark done in ../STATUS.md; commit message** `feat(stripe): P1-T03 setup intents, off-session hold, idempotent transfers, connect secret`
+- [ ] **Step 6: Mark done in ../STATUS.md; commit message** `feat(stripe): P1-T03 setup intents, off-session automatic-capture charge, idempotent transfers, connect secret`
 
 ---
 
@@ -439,7 +613,7 @@ Five inputs no reviewer should accept this phase without seeing tested:
 - Modify: `src/modules/payments/repository/payments.repository.ts:12-28`,
   `src/modules/payments/dtos/payments-repository.dto.ts:3-6`,
   `src/modules/payments/types/index.d.ts:10-25` (`PaymentRecord` gains `chargeId: string | null;
-  disputeId: string | null`; add `UpdatePaymentData`).
+  disputeId: string | null`; add `UpdatePaymentData`, `RecordSucceededChargeData`).
 - Modify: `src/modules/payments/payments.module.ts:9-19` → `exports: [PaymentsRepository]`, drop
   `StripeModule`/`EnvService`/`CreatePaymentRecordService` (keep `PrismaService` only if Phase 0's
   global module is not merged).
@@ -459,16 +633,23 @@ Five inputs no reviewer should accept this phase without seeing tested:
   transition(data: TransitionTaskData): Promise<boolean>
     // prisma.tasks.updateMany({ where: { id, status: { in: from } }, data: { status: to, ...data } }) → count === 1
 
-  export type ClaimTaskData = { taskId: string; executorId: string; startedAt: Date; payment: { paymentIntent: string; amount: Prisma.Decimal } }
-  claimTask(data: ClaimTaskData): Promise<{ paymentId: string } | null>
-    // interactive $transaction: updateMany available→in_progress (+startedAt); count !== 1 → return null (nothing else written);
-    // userTaskMapping.create; payments.create({ status: 'pending', amount, paymentIntent }) → { paymentId }
+  export type ClaimTaskData = { taskId: string; executorId: string; startedAt: Date }
+  claimTask(data: ClaimTaskData): Promise<boolean>
+    // interactive $transaction:
+    //   r = tx.tasks.updateMany({ where: { id: taskId, status: 'available' }, data: { status: 'in_progress', startedAt } })
+    //   r.count !== 1 → return false (nothing else written)
+    //   tx.userTaskMapping.deleteMany({ where: { taskId } })            // clears a stale legacy mapping, if any
+    //   tx.userTaskMapping.create({ data: { taskId, executorId } }) → return true
+    // No payment row here: the PaymentIntent id exists only after P1-T08 calls Stripe.
+    // `startedAt` is the claim timestamp; P1-T08 derives the Stripe idempotency key from it.
 
-  export type ReleaseClaimData = { taskId: string; executorId: string; paymentId: string }
-  releaseClaim(data: ReleaseClaimData): Promise<void>
-    // $transaction([ tasks.updateMany({ where: { id, status: 'in_progress' }, data: { status: 'available', startedAt: null } }),
-    //                userTaskMapping.deleteMany({ where: { taskId, executorId } }),
-    //                payments.update({ where: { id: paymentId }, data: { status: 'failed' } }) ])
+  export type ReleaseClaimData = { taskId: string; executorId: string; startedAt: Date }
+  releaseClaim(data: ReleaseClaimData): Promise<boolean>
+    // interactive $transaction:
+    //   r = tx.tasks.updateMany({ where: { id: taskId, status: 'in_progress', startedAt }, data: { status: 'available', startedAt: null } })
+    //   r.count === 1 → tx.userTaskMapping.deleteMany({ where: { taskId, executorId } })
+    //   return r.count === 1
+    // Matching on startedAt releases only that exact claim: a later claim (new startedAt) or a task that moved on is untouched.
 
   export type RecordTransferData = { taskId: string; executorId: string; transferId: string; proxyEarnings: Prisma.Decimal }
   recordTransfer(data: RecordTransferData): Promise<void>
@@ -478,17 +659,25 @@ Five inputs no reviewer should accept this phase without seeing tested:
 - Produces (`PaymentsRepository`):
   ```ts
   export type UpdatePaymentData = { status?: PaymentStatus; refundId?: string | null; chargeId?: string | null; disputeId?: string | null }
+  export type RecordSucceededChargeData = { taskId: string; paymentIntent: string; amount: Prisma.Decimal; chargeId: string | null }
   fetchLatestByTaskId(taskId: string): Promise<PaymentRecord | null>   // findFirst({ where: { taskId }, orderBy: { createdAt: 'desc' } })
   findByPaymentIntent(paymentIntent: string): Promise<PaymentRecord | null>   // findUnique
-  countByTaskId(taskId: string): Promise<number>
   updateById(id: string, data: UpdatePaymentData): Promise<void>   // payments.update({ where: { id }, data })
+  recordSucceededCharge(data: RecordSucceededChargeData): Promise<PaymentRecord>
+    // idempotent; called by POST /tasks/start (P1-T08) and by the payment_intent.succeeded webhook (P1-T14), in any order:
+    // 1. payments.createMany({ data: [{ taskId, paymentIntent, amount, status: 'succeeded', chargeId }], skipDuplicates: true })
+    //    (INSERT … ON CONFLICT ("paymentIntent") DO NOTHING — the unique index comes from P1-T02)
+    // 2. payments.updateMany({ where: { paymentIntent, status: 'pending' }, data: { status: 'succeeded' } })   // rows created before this phase
+    // 3. chargeId !== null → payments.updateMany({ where: { paymentIntent, chargeId: null }, data: { chargeId } })
+    // 4. return payments.findUniqueOrThrow({ where: { paymentIntent } })
+    // Never touches a row that is already 'refunded', 'disputed' or 'failed' (no downgrade, no resurrection).
   ```
   Legacy `createPaymentRecord`/`fetchPaymentRecord`/`updatePaymentRecord` and the three pass-through
   services in `payments/use-cases/` stay until P1-T08 (create) and P1-T13 (fetch/update) delete them.
 
 - [ ] **Step 1: Write the failing test** `test/tasks/tasks-repository.e2e-spec.ts` — obtain repos with
   `ctx.app.get(TasksRepository)` / `ctx.app.get(PaymentsRepository)`; helper
-  `claimFor = (taskId, executorId = proxy.id) => ({ taskId, executorId, startedAt: new Date() })`:
+  `claimFor = (taskId, executorId = proxy.id, startedAt = new Date()) => ({ taskId, executorId, startedAt })`:
   ```ts
   it('transition is a no-op when the from-status does not match', async () => {
     const task = await createTask(ctx.prisma, owner.id, { status: 'canceled' })
@@ -502,51 +691,73 @@ Five inputs no reviewer should accept this phase without seeing tested:
     const stored = await ctx.prisma.tasks.findUniqueOrThrow({ where: { id: task.id } })
     expect(stored.status).toBe('verification_required'); expect(stored.proofImageUrl).toBe(`${task.id}/a.jpg`)
   })
-  it('claimTask claims an available task atomically', async () => {
+  it('claimTask claims an available task atomically and writes no payment', async () => {
     const task = await createTask(ctx.prisma, owner.id)
-    const result = await repo.claimTask({ taskId: task.id, executorId: proxy.id, startedAt: new Date(), payment: { paymentIntent: 'pi_claim', amount: new Prisma.Decimal('125.39') } })
-    expect(result).toEqual({ paymentId: expect.any(String) })
-    expect((await ctx.prisma.tasks.findUniqueOrThrow({ where: { id: task.id } })).status).toBe('in_progress')
+    const startedAt = new Date()
+    await expect(repo.claimTask(claimFor(task.id, proxy.id, startedAt))).resolves.toBe(true)
+    const stored = await ctx.prisma.tasks.findUniqueOrThrow({ where: { id: task.id } })
+    expect(stored.status).toBe('in_progress'); expect(stored.startedAt?.getTime()).toBe(startedAt.getTime())
     expect((await ctx.prisma.userTaskMapping.findUnique({ where: { taskId: task.id } }))?.executorId).toBe(proxy.id)
-    expect((await ctx.prisma.payments.findUnique({ where: { paymentIntent: 'pi_claim' } }))?.status).toBe('pending')
-  })
-  it('claimTask returns null and writes nothing when the task is not available', async () => {
-    const task = await createTask(ctx.prisma, owner.id, { status: 'in_progress', startedAt: new Date() })
-    await expect(repo.claimTask({ ...claimFor(task.id), payment: { paymentIntent: 'pi_lost', amount: new Prisma.Decimal('125.39') } })).resolves.toBeNull()
-    expect(await ctx.prisma.userTaskMapping.findUnique({ where: { taskId: task.id } })).toBeNull()
     expect(await ctx.prisma.payments.count({ where: { taskId: task.id } })).toBe(0)
+  })
+  it('claimTask returns false and writes nothing when the task is not available', async () => {
+    const task = await createTask(ctx.prisma, owner.id, { status: 'in_progress', startedAt: new Date() })
+    await expect(repo.claimTask(claimFor(task.id))).resolves.toBe(false)
+    expect(await ctx.prisma.userTaskMapping.findUnique({ where: { taskId: task.id } })).toBeNull()
   })
   it('exactly one of two concurrent claims wins', async () => {
     const task = await createTask(ctx.prisma, owner.id)
-    const [a, b] = await Promise.all([
-      repo.claimTask({ ...claimFor(task.id, proxy.id), payment: { paymentIntent: 'pi_a', amount: new Prisma.Decimal('62.90') } }),
-      repo.claimTask({ ...claimFor(task.id, proxy2.id), payment: { paymentIntent: 'pi_b', amount: new Prisma.Decimal('62.90') } }),
-    ])
-    expect([a, b].filter(Boolean)).toHaveLength(1)
+    const results = await Promise.all([repo.claimTask(claimFor(task.id, proxy.id)), repo.claimTask(claimFor(task.id, proxy2.id))])
+    expect(results.filter(Boolean)).toHaveLength(1)
+    expect(await ctx.prisma.userTaskMapping.count({ where: { taskId: task.id } })).toBe(1)
+  })
+  it('releaseClaim reverts task and mapping for the matching claim only', async () => {
+    const task = await createTask(ctx.prisma, owner.id)
+    const startedAt = new Date()
+    await repo.claimTask(claimFor(task.id, proxy.id, startedAt))
+    await expect(repo.releaseClaim({ taskId: task.id, executorId: proxy.id, startedAt: new Date(startedAt.getTime() - 1000) })).resolves.toBe(false)   // stale claim
+    expect((await ctx.prisma.tasks.findUniqueOrThrow({ where: { id: task.id } })).status).toBe('in_progress')
+    await expect(repo.releaseClaim({ taskId: task.id, executorId: proxy.id, startedAt })).resolves.toBe(true)
+    const stored = await ctx.prisma.tasks.findUniqueOrThrow({ where: { id: task.id } })
+    expect(stored.status).toBe('available'); expect(stored.startedAt).toBeNull()
+    expect(await ctx.prisma.userTaskMapping.findUnique({ where: { taskId: task.id } })).toBeNull()
+  })
+  it('recordSucceededCharge is idempotent and back-fills chargeId', async () => {
+    const task = await createTask(ctx.prisma, owner.id, { status: 'in_progress', startedAt: new Date() })
+    const data = { taskId: task.id, paymentIntent: 'pi_rec', amount: new Prisma.Decimal('100'), chargeId: null }
+    await payments.recordSucceededCharge(data)
+    const row = await payments.recordSucceededCharge({ ...data, chargeId: 'ch_rec' })
+    expect(row.status).toBe('succeeded'); expect(row.chargeId).toBe('ch_rec'); expect(row.amount.toFixed(2)).toBe('100.00')
+    await Promise.all([payments.recordSucceededCharge(data), payments.recordSucceededCharge(data)])
     expect(await ctx.prisma.payments.count({ where: { taskId: task.id } })).toBe(1)
   })
-  it('releaseClaim reverts task, mapping and payment', async () => { /* claim then release → available, startedAt null, mapping null, payment failed */ })
+  it('recordSucceededCharge never downgrades a refunded or disputed row', async () => {
+    await createPayment(ctx.prisma, task.id, { paymentIntent: 'pi_ref', status: 'refunded', chargeId: 'ch_ref', refundId: 're_1' })
+    const row = await payments.recordSucceededCharge({ taskId: task.id, paymentIntent: 'pi_ref', amount: new Prisma.Decimal('100'), chargeId: 'ch_ref' })
+    expect(row.status).toBe('refunded')
+  })
   it('recordTransfer increments counters and wallet atomically', async () => {
-    await repo.recordTransfer({ taskId: task.id, executorId: proxy.id, transferId: 'tr_1', proxyEarnings: new Prisma.Decimal('100') })
-    await repo.recordTransfer({ taskId: task2.id, executorId: proxy.id, transferId: 'tr_2', proxyEarnings: new Prisma.Decimal('50') })
+    await repo.recordTransfer({ taskId: task.id, executorId: proxy.id, transferId: 'tr_1', proxyEarnings: new Prisma.Decimal('80') })
+    await repo.recordTransfer({ taskId: task2.id, executorId: proxy.id, transferId: 'tr_2', proxyEarnings: new Prisma.Decimal('40') })
     const u = await ctx.prisma.users.findUniqueOrThrow({ where: { id: proxy.id } })
-    expect(u.totalTasksCompleted).toBe(2); expect(u.walletBalance.toFixed(2)).toBe('150.00')
+    expect(u.totalTasksCompleted).toBe(2); expect(u.walletBalance.toFixed(2)).toBe('120.00')
   })
   it('fetchLatestByTaskId returns the newest payment', async () => {
     await createPayment(ctx.prisma, task.id, { paymentIntent: 'pi_old', status: 'failed', createdAt: new Date(Date.now() - 3_600_000) })
     await createPayment(ctx.prisma, task.id, { paymentIntent: 'pi_new', status: 'succeeded' })
     expect((await payments.fetchLatestByTaskId(task.id))?.paymentIntent).toBe('pi_new')
-    expect(await payments.countByTaskId(task.id)).toBe(2)
+    expect((await payments.findByPaymentIntent('pi_old'))?.status).toBe('failed')
   })
   ```
 - [ ] **Step 2: Run it, expect failure** — `npx jest --config test/jest-e2e.config.ts --runInBand
   test/tasks/tasks-repository.e2e-spec.ts` → `repo.transition is not a function`.
 - [ ] **Step 3: Implement** the methods above in both repositories (+ DTO interfaces + types), the
   module wiring (`PaymentsModule` exports, `TasksModule` imports it), and the one-line change in
-  `fetch-task-by-id.service.ts`. `claimTask` uses `this.prisma.$transaction(async (tx) => { ... })`;
-  return `null` *without throwing* when the CAS count is 0 (an early `return null` inside the
-  callback commits an empty transaction, which is fine).
-- [ ] **Step 4: Run it, expect pass** — `Tests: 8 passed`.
+  `fetch-task-by-id.service.ts`. `claimTask` and `releaseClaim` use
+  `this.prisma.$transaction(async (tx) => { ... })`; return `false` *without throwing* when the CAS
+  count is 0 (an early `return false` inside the callback commits an empty transaction, which is
+  fine).
+- [ ] **Step 4: Run it, expect pass** — `Tests: 10 passed`.
 - [ ] **Step 5: Verify the repo gate** — `npx tsc --noEmit && npx jest && npm run test:e2e`.
 - [ ] **Step 6: Mark done in ../STATUS.md; commit message** `feat(tasks): P1-T04 CAS transitions, atomic claim, payment bookkeeping`
 
@@ -696,8 +907,10 @@ Five inputs no reviewer should accept this phase without seeing tested:
     // 1. user = fetchUserDetailsService.execute(userId); userType !== 'CLIENT' → 403 USER_NOT_CLIENT
     // 2. savedCard → card = fetchUserCardService.execute(userId) (404 NO_SAVED_CARD_FOUND); card.stripeCardId !== savedCard → 404 NO_SAVED_CARD_FOUND
     //    paymentMethodId → saveCardService.execute({ userId, paymentMethodId })
-    // 3. fees = computeCharge(offeredPrice); tasksRepository.createTask({ ...fees, ... })
+    // 3. fees = computeCharge(offeredPrice); tasksRepository.createTask({ offeredPrice, platformFee, stripeFee, chargedAmount, proxyEarnings, ... })
+    //    (D1: chargedAmount = offeredPrice, platformFee 20 %, proxyEarnings 80 %; fees.platformNet is NOT passed — no column)
   ```
+  Bounds come from `src/common/money.ts`: `MIN_OFFERED_PRICE = 20`, `MAX_OFFERED_PRICE = 10_000` (D1).
   Dictionary: `user.notClient = { message: 'Apenas clientes podem criar tarefas.', statusCode: 403, errorCode: 'USER_NOT_CLIENT' }`.
   Response of `GET /tasks/:id`, `/tasks/active`, `/tasks/fetch` now carries `stripeFee` and
   `chargedAmount` (Decimal → JSON string, like `offeredPrice`). App type follows in P1-T18; the
@@ -707,7 +920,7 @@ Five inputs no reviewer should accept this phase without seeing tested:
   payload now has `cardDetails: { savedCard: 'pm_owner' }` and each test seeds the card
   (`ctx.prisma.cards.create({ data: { userId, stripeCardId: 'pm_owner', brand: 'visa', last4: '4242' } })`):
   ```ts
-  it.each([0, 9.99, 10.005, 10000.01])('rejects offeredPrice %p', async (offeredPrice) => { → 400; tasks.count === 0 })
+  it.each([0, 19.99, 20.005, 10000.01])('rejects offeredPrice %p', async (offeredPrice) => { → 400; tasks.count === 0 })
   it('rejects cardDetails {} and both keys at once', async () => { {} → 400; { savedCard: 'a', paymentMethodId: 'b' } → 400 })
   it('rejects a PROXY with 403 USER_NOT_CLIENT and writes nothing', async () => { createUser({ userType: 'PROXY' }) → 403; tasks.count 0; totalTasksCreated 0 })
   it('rejects a savedCard that is not the active card and writes nothing', async () => { send savedCard 'pm_other' → 404 NO_SAVED_CARD_FOUND; tasks.count 0; totalTasksCreated 0 })
@@ -715,24 +928,29 @@ Five inputs no reviewer should accept this phase without seeing tested:
     → 201 { id }
     const t = await ctx.prisma.tasks.findUniqueOrThrow({ where: { id: res.body.id } })
     expect(t.offeredPrice.toFixed(2)).toBe('100.00'); expect(t.platformFee?.toFixed(2)).toBe('20.00')
-    expect(t.stripeFee?.toFixed(2)).toBe('5.39'); expect(t.chargedAmount?.toFixed(2)).toBe('125.39'); expect(t.proxyEarnings?.toFixed(2)).toBe('100.00')
+    expect(t.stripeFee?.toFixed(2)).toBe('4.38'); expect(t.chargedAmount?.toFixed(2)).toBe('100.00'); expect(t.proxyEarnings?.toFixed(2)).toBe('80.00')
     expect(t.status).toBe('available'); totalTasksCreated === 1
   })
-  it('rounds half-centavo platform fees up (10.03)', async () => { platformFee '2.01', stripeFee '0.91', chargedAmount '12.95' })
+  it('rounds half-up (20.03 and 50)', async () => {
+    20.03 → platformFee '4.01', stripeFee '1.19', chargedAmount '20.03', proxyEarnings '16.02'
+    50    → platformFee '10.00', stripeFee '2.39' (raw 2.385), chargedAmount '50.00', proxyEarnings '40.00'
+  })
   it('saves a new card from a confirmed paymentMethodId and creates the task', async () => {
     send cardDetails { paymentMethodId: 'pm_test_123' } → 201; cards active for user = 1 with stripeCardId 'pm_test_123'
   })
   it('increments totalTasksCreated per call (3 calls → 3)', ... keep)
   ```
   `fetch-task-by-id.e2e-spec.ts`: in the happy case add
-  `expect(Number(response.body.chargedAmount)).toBe(62.9); expect(Number(response.body.stripeFee)).toBe(2.9); expect(Number(response.body.platformFee)).toBe(10); expect(Number(response.body.proxyEarnings)).toBe(50)`
+  `expect(Number(response.body.chargedAmount)).toBe(50); expect(Number(response.body.stripeFee)).toBe(2.39); expect(Number(response.body.platformFee)).toBe(10); expect(Number(response.body.proxyEarnings)).toBe(40)`
   (task factory default price 50; Prisma serialises `Decimal` as a string without trailing zeros,
-  e.g. `'62.9'`, so compare numerically).
-- [ ] **Step 2: Run it, expect failure** — `0` and `9.99` are accepted (201).
+  e.g. `'50'` for 50.00, so compare numerically); also `expect(response.body).not.toHaveProperty('platformNet')`.
+- [ ] **Step 2: Run it, expect failure** — `0`, `19.99` and `20.005` are accepted (201).
 - [ ] **Step 3: Implement** schema, service, repository (`createTask`, `taskSelect`), types,
   dictionary, deletions. Rewrite `create-task.service.spec.ts`: asserts call order (`fetchUserDetails`
-  → card → `createTask`), `createTask` receives `platformFee.toFixed(2) === '20.00'` etc., PROXY →
-  `USER_NOT_CLIENT` without `createTask`.
+  → card → `createTask`), `createTask` receives `platformFee.toFixed(2) === '20.00'`,
+  `chargedAmount.toFixed(2) === '100.00'`, `proxyEarnings.toFixed(2) === '80.00'`,
+  `stripeFee.toFixed(2) === '4.38'` and no `platformNet` key, PROXY → `USER_NOT_CLIENT` without
+  `createTask`.
 - [ ] **Step 4: Run it, expect pass** — `Tests: 9 passed` (create-task e2e) + fetch-task-by-id green.
 - [ ] **Step 5: Verify the repo gate** — `npx tsc --noEmit && npx jest && npm run test:e2e`.
 - [ ] **Step 6: Mark done in ../STATUS.md; commit message** `feat(tasks): P1-T06 strict create, CLIENT-only, fees persisted`
@@ -757,24 +975,27 @@ Five inputs no reviewer should accept this phase without seeing tested:
   const querySchema = z.object({ offeredPrice: z.coerce.number().min(MIN_OFFERED_PRICE).max(MAX_OFFERED_PRICE).multipleOf(0.01) })
   @Get() handle(@Query(new ZodValidationPipe(querySchema)) query, @User() user)
   export type PricePreview = { offeredPrice: number; platformFee: number; stripeFee: number; chargedAmount: number; proxyEarnings: number }
-  PricePreviewService.execute(offeredPrice: number): PricePreview   // breakdownToNumbers(computeCharge(offeredPrice))
+  PricePreviewService.execute(offeredPrice: number): PricePreview   // breakdownToNumbers(computeCharge(offeredPrice)) — five keys, no platformNet
   ```
-  Consumed by Phase 3 (`useChargePreview(price)` in P3 task "Money copy from backend numbers");
-  app type `TPricePreview` added in P1-T18.
+  Under D1 `chargedAmount === offeredPrice` in every response; the other fields tell the client
+  nothing they pay extra and tell the proxy "Você recebe" (`proxyEarnings`). Consumed by Phase 3
+  (`useChargePreviewQuery(offeredPrice)` in P3 task "Money copy from backend numbers"); app type
+  `TChargePreview` added in P1-T18.
 
 - [ ] **Step 1: Write the failing test** `test/tasks/price-preview.e2e-spec.ts`:
   ```ts
   it('rejects unauthenticated requests', ... get('/tasks/price-preview?offeredPrice=100') → 401)
   it('returns the D1 breakdown as numbers for R$ 100,00', async () => {
-    → 200; expect(res.body).toEqual({ offeredPrice: 100, platformFee: 20, stripeFee: 5.39, chargedAmount: 125.39, proxyEarnings: 100 })
+    → 200; expect(res.body).toEqual({ offeredPrice: 100, platformFee: 20, stripeFee: 4.38, chargedAmount: 100, proxyEarnings: 80 })
   })
-  it('rounds the platform fee half-up (10.03)', ... → { offeredPrice: 10.03, platformFee: 2.01, stripeFee: 0.91, chargedAmount: 12.95, proxyEarnings: 10.03 })
-  it.each(['9.99', '10000.01', 'abc', ''])('rejects offeredPrice=%s', ... → 400)
+  it('rounds half-up (20.03)', ... → { offeredPrice: 20.03, platformFee: 4.01, stripeFee: 1.19, chargedAmount: 20.03, proxyEarnings: 16.02 })
+  it.each(['19.99', '10000.01', 'abc', ''])('rejects offeredPrice=%s', ... → 400)
   it('is not shadowed by GET /tasks/:id', ... → status 200, not 404 TASK_NOT_FOUND)
   ```
 - [ ] **Step 2: Run it, expect failure** — `GET /tasks/price-preview?offeredPrice=100` → 404
   `TASK_NOT_FOUND` (caught by `:id`).
-- [ ] **Step 3: Implement** controller, service (unit spec: `execute(100)` equals the object above),
+- [ ] **Step 3: Implement** controller, service (unit spec: `execute(100)` equals the object above;
+  `execute(50)` equals `{ offeredPrice: 50, platformFee: 10, stripeFee: 2.39, chargedAmount: 50, proxyEarnings: 40 }`),
   module registration order.
 - [ ] **Step 4: Run it, expect pass** — `Tests: 8 passed`.
 - [ ] **Step 5: Verify the repo gate** — `npx tsc --noEmit && npx jest && npm run test:e2e`.
@@ -782,111 +1003,175 @@ Five inputs no reviewer should accept this phase without seeing tested:
 
 ---
 
-### Task P1-T08: `POST /tasks/start` — hold → CAS claim → capture
+### Task P1-T08: `POST /tasks/start` — CAS claim → charge (automatic capture) → payment row
 
 **Files:**
 - Modify: `src/modules/tasks/use-cases/start-task.service.ts:13-100` (full rewrite) + spec rewrite
 - Modify: `src/modules/tasks/types/index.d.ts:114-116` → `export type StartTaskResult = { status: 'succeeded' }`
-- Modify: `src/exception/error-dictionary.ts:163-167` message of `payment.paymentFailed`
+- Modify: `src/exception/error-dictionary.ts:163-167` (`payment.paymentFailed`: message + status),
+  add `payment.chargePending` next to it
+- Modify: `src/notification/notification.service.ts` add `sendCardChargeFailedEmail`;
+  `test/mocks/notification.service.mock.ts` add its `jest.fn().mockResolvedValue(undefined)` entry;
+  `src/modules/tasks/tasks.module.ts` `imports` gains `NotificationModule.forRoot()` (same call as
+  `auth.module.ts:55`).
 - Delete: `StripeService.createPaymentIntent`, `confirmPaymentIntent` (`stripe.service.ts:63-82`) +
   mock entries; `PaymentsRepository.createPaymentRecord` + `CreatePaymentRecordService` (+ spec) +
   provider in `tasks.module.ts:34,69`.
 - Modify: `test/tasks/start-task.e2e-spec.ts:96-185`
 
 **Interfaces:**
-- Consumes: `chargeSavedCard`, `capturePaymentIntent`, `cancelPaymentIntent` (P1-T03);
-  `TasksRepository.claimTask/releaseClaim`, `PaymentsRepository.countByTaskId/findByPaymentIntent/updateById`
-  (P1-T04); `FetchUserCardService.execute`, `FetchUserDetailsService.execute`; `computeCharge`,
-  `toCentavos`.
-- Produces: `StartTaskService(stripeService, tasksRepository, paymentsRepository, fetchUserCardService, fetchUserDetailsService)`;
+- Consumes: `chargeSavedCard` (P1-T03); `TasksRepository.claimTask/releaseClaim/fetchTaskById/fetchTaskMappingByTaskId`,
+  `PaymentsRepository.fetchLatestByTaskId/recordSucceededCharge` (P1-T04); `FetchUserCardService.execute`,
+  `FetchUserDetailsService.execute`; `toCentavos` (P1-T01); `NotificationService.sendCardChargeFailedEmail`.
+- Produces: `StartTaskService(stripeService, tasksRepository, paymentsRepository, fetchUserCardService, fetchUserDetailsService, notificationService)`;
   `execute({ taskId, userId }): Promise<{ status: 'succeeded' }>` with this fixed order:
   ```
-  1. task = fetchTaskById({ taskId, status: 'available' })            → 404 TASK_NOT_FOUND
-  2. task.owner === userId                                           → 403 CANNOT_START_OWN_TASK
-  3. user = fetchUserDetails(userId); not PROXY or !stripeAccountReady → 403 USER_NOT_PROXY  (Phase 2 BE-46 splits this)
-  4. card = fetchUserCard(task.owner)                                 → 404 NO_SAVED_CARD_FOUND (nothing written)
-     customer = task.ownerId.stripeCustomerId ?? throw 402 PAYMENT_FAILED
-  5. charged = task.chargedAmount ?? computeCharge(task.offeredPrice).chargedAmount
-     attempt = (await paymentsRepository.countByTaskId(taskId)) + 1
-     key = `task:${taskId}:pi:${userId}:${attempt}`
-     pi = chargeSavedCard({ amount: toCentavos(charged), customer, paymentMethod: card.stripeCardId, taskId }, key)
-        catch (err): if (err?.payment_intent?.id) cancelPaymentIntent(id) (ignore errors) → 402 PAYMENT_FAILED
-     pi.status !== 'requires_capture' → cancelPaymentIntent(pi.id) → 402 PAYMENT_FAILED
-  6. claim = claimTask({ taskId, executorId: userId, startedAt: new Date(), payment: { paymentIntent: pi.id, amount: charged } })
-     claim === null → if (!(await findByPaymentIntent(pi.id))) cancelPaymentIntent(pi.id)   // same-proxy double tap shares the PI; never cancel the winner's
-                   → 400 TASK_NOT_AVAILABLE
-  7. captured = capturePaymentIntent(pi.id)
-     throw or captured.status !== 'succeeded' → releaseClaim({ taskId, executorId: userId, paymentId }); cancelPaymentIntent(pi.id) (ignore errors) → 402 PAYMENT_FAILED
-  8. updateById(paymentId, { status: 'succeeded', chargeId: typeof captured.latest_charge === 'string' ? captured.latest_charge : captured.latest_charge?.id ?? null })
-  9. return { status: 'succeeded' }
+  1. task = fetchTaskById({ taskId })   (no status filter)               → 404 TASK_NOT_FOUND
+     task.status ∉ {'available', 'in_progress'}                         → 400 TASK_NOT_AVAILABLE
+     task.status === 'in_progress' && fetchTaskMappingByTaskId(taskId)?.executorId !== userId
+                                                                         → 400 TASK_NOT_AVAILABLE (someone else's claim)
+  2. task.owner === userId                                              → 403 CANNOT_START_OWN_TASK
+  3. user = fetchUserDetails(userId); not PROXY or !stripeAccountReady   → 403 USER_NOT_PROXY  (Phase 2 BE-46 splits this)
+  4. card = fetchUserCard(task.owner) (its NO_SAVED_CARD_FOUND is caught); customer = task.ownerId.stripeCustomerId
+     no card or no customer → notifyClient() → 409 PAYMENT_FAILED   (nothing written, no Stripe call)
+  5. claim (CAS before any Stripe call — the race is decided here, D3 ruling "claim first"):
+     startedAt = new Date()
+     claimed = task.status === 'available' && await claimTask({ taskId, executorId: userId, startedAt })
+     if (!claimed) {
+       current = fetchTaskById({ taskId }); mapping = fetchTaskMappingByTaskId(taskId)
+       current?.status !== 'in_progress' || mapping?.executorId !== userId || !current.startedAt
+                                                                         → 400 TASK_NOT_AVAILABLE (no Stripe call)
+       (await fetchLatestByTaskId(taskId))?.status === 'succeeded'      → return { status: 'succeeded' }   // replay of this proxy's own start
+       startedAt = current.startedAt                                     // resume the same claim → same key → same PaymentIntent
+     }
+  6. charged = task.chargedAmount ?? task.offeredPrice                   // D1: chargedAmount = offeredPrice; `??` covers rows seeded without fees
+     key = `start:${taskId}:${userId}:${startedAt.getTime()}`
+     try   pi = chargeSavedCard({ amount: toCentavos(charged), customer, paymentMethod: card.stripeCardId,
+                                  taskId, proxyId: userId, claimedAt: startedAt.toISOString() }, key)
+     catch err → outcome = (err?.type === 'StripeCardError' || err?.type === 'StripeInvalidRequestError') ? 'declined' : 'unknown'
+     no throw  → outcome = pi.status === 'succeeded' ? 'succeeded' : pi.status === 'processing' ? 'unknown' : 'declined'
+  7. 'succeeded' → recordSucceededCharge({ taskId, paymentIntent: pi.id, amount: charged,
+                     chargeId: typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id ?? null })
+                   → return { status: 'succeeded' }
+     'declined'  → releaseClaim({ taskId, executorId: userId, startedAt }); notifyClient() → 409 PAYMENT_FAILED
+     'unknown'   → Logger.error(`start ${taskId}: charge outcome unknown (${err?.type ?? pi?.status}), key ${key}`)
+                   claim kept, no notification → 409 PAYMENT_PENDING
+  notifyClient() = notificationService.sendCardChargeFailedEmail(task.ownerId.email, task.ownerId.name, task.title)
+                   inside try/catch → Logger.warn on failure; never changes the response
   ```
-  Dictionary: `payment.paymentFailed.message = 'O pagamento do cliente foi recusado. A tarefa continua disponível.'`
-  (402 `PAYMENT_FAILED` kept). `Payments.amount` now stores `chargedAmount` (what the client paid),
-  not `offeredPrice`. Contract change: `requires_action` shape removed — app type in P1-T18, UI in
+  Why this order: with automatic capture a `succeeded` answer is a final charge, so the CAS must pick
+  the single winner before Stripe is called; a second proxy loses the CAS and never reaches Stripe.
+  One key has exactly one outcome at Stripe, so a request can never release a claim whose charge
+  succeeded: `declined` only comes back for a key that did not charge. If `recordSucceededCharge`
+  throws after a succeeded charge, the claim stays and the `payment_intent.succeeded` webhook writes
+  the row from metadata (P1-T14). Against real Stripe a *truly simultaneous* second request with the
+  same key gets `StripeIdempotencyError` (the first is still executing) → `unknown` → 409
+  `PAYMENT_PENDING` with the claim kept, which is safe; the e2e mock answers both calls, so the
+  double-tap case below sees two 200s.
+  Dictionary (pt-BR):
+  `payment.paymentFailed = { message: 'Não foi possível cobrar o cliente. Tente outra tarefa.', statusCode: HttpStatus.CONFLICT, errorCode: 'PAYMENT_FAILED' }`
+  (was 402 `'Falha ao processar o pagamento.'`; the code is kept),
+  `payment.chargePending = { message: 'Ainda estamos confirmando a cobrança do cliente. Tente novamente em instantes.', statusCode: HttpStatus.CONFLICT, errorCode: 'PAYMENT_PENDING' }`.
+  `NotificationService.sendCardChargeFailedEmail(to: string, userName: string, taskTitle: string): Promise<void>`
+  — same HTML wrapper as `sendResetCodeByEmail`; subject `'Confirme seu cartão na Carteira - Proxy'`;
+  body `Olá, <strong>${userName}</strong>!` / `Um Proxy tentou aceitar sua tarefa "<strong>${taskTitle}</strong>", mas não conseguimos cobrar seu cartão.` /
+  `Confirme seu cartão na Carteira do app. A tarefa continua disponível.` (`userName` and `taskTitle`
+  HTML-escaped: `&`, `<`, `>`, `"`); calls `this.sendEmail(to, subject, body)`.
+  `Payments.amount` stores `chargedAmount` (what the client paid, = `offeredPrice`). The start path
+  writes only `succeeded` rows; it never writes `pending` or `failed`. Contract change:
+  `requires_action` shape removed and `PAYMENT_FAILED` is now 409 — app type in P1-T18, UI in
   Phase 3 (P3 task "Payment status banner / requires_action removed").
-  Note on D3: the decision text says "any status other than `succeeded` is a hard failure"; with
-  `capture_method: 'manual'` the accepted status after confirm is `requires_capture` and after
-  capture `succeeded` — the hold lets the CAS loser release money instead of refunding a captured
-  charge (PLAN.md's "cancel PI" is only possible on an uncaptured intent).
 
 - [ ] **Step 1: Write the failing test** — replace `start-task.e2e-spec.ts:96-185` (keep 24-94;
-  helper `seed()` creates owner with card `pm_owner`, ready proxy, task `offeredPrice: 100`):
+  helper `seed()` creates owner with card `pm_owner`, ready proxy, task `offeredPrice: 100`;
+  `start(user)` posts `/tasks/start` with that user's token; `stored()` reads the task row):
   ```ts
-  it('returns 404 NO_SAVED_CARD_FOUND and writes nothing when the owner has no card', async () => {
-    → 404; task.status 'available', startedAt null; mapping null; payments.count 0; chargeSavedCard not called
+  it('answers 409 PAYMENT_FAILED, notifies the client and writes nothing when the owner has no card', async () => {
+    → 409; body.errorCode 'PAYMENT_FAILED'; task.status 'available', startedAt null; mapping null; payments.count 0
+    expect(ctx.stripeMock.chargeSavedCard).not.toHaveBeenCalled()
+    expect(ctx.notificationMock.sendCardChargeFailedEmail).toHaveBeenCalledWith(owner.email, expect.any(String), task.title)
   })
-  it('holds, claims, captures and records the payment', async () => {
+  it('claims, charges and records the payment', async () => {
     → 200 toEqual({ status: 'succeeded' })
+    const t = await stored()
     expect(ctx.stripeMock.chargeSavedCard).toHaveBeenCalledWith(
-      { amount: 12539, customer: owner.stripeCustomerId, paymentMethod: 'pm_owner', taskId: task.id },
-      `task:${task.id}:pi:${proxy.id}:1`)
-    expect(ctx.stripeMock.capturePaymentIntent).toHaveBeenCalledWith('pi_test_123')
-    task → status 'in_progress', startedAt not null; mapping.executorId === proxy.id
-    payment = payments.findUnique({ where: { paymentIntent: 'pi_test_123' } }) → status 'succeeded', chargeId 'ch_test_123', amount.toFixed(2) '125.39'
+      { amount: 10000, customer: owner.stripeCustomerId, paymentMethod: 'pm_owner', taskId: task.id, proxyId: proxy.id, claimedAt: t.startedAt!.toISOString() },
+      `start:${task.id}:${proxy.id}:${t.startedAt!.getTime()}`)
+    t.status 'in_progress'; mapping.executorId === proxy.id
+    payment = payments.findUnique({ where: { paymentIntent: 'pi_test_123' } }) → status 'succeeded', chargeId 'ch_test_123', amount.toFixed(2) '100.00'
+    expect(ctx.notificationMock.sendCardChargeFailedEmail).not.toHaveBeenCalled()
   })
-  it('sends integer centavos for prices with float artefacts (10.03 → 1295)', ... offeredPrice 10.03 → amount 1295)
-  it('returns 402 and cancels the intent when the card is declined', async () => {
-    ctx.stripeMock.chargeSavedCard.mockRejectedValueOnce(Object.assign(new Error('Your card was declined.'), { payment_intent: { id: 'pi_declined' } }))
-    → 402; body.errorCode 'PAYMENT_FAILED'; body.message 'O pagamento do cliente foi recusado. A tarefa continua disponível.'
-    task 'available'; mapping null; payments.count 0; cancelPaymentIntent called with 'pi_declined'; capture not called
+  it('sends integer centavos for prices with float artefacts (20.01 → 2001)', ... offeredPrice 20.01 → chargeSavedCard amount 2001)
+  it('answers 409 PAYMENT_FAILED, releases the claim and notifies the client when the card is declined', async () => {
+    ctx.stripeMock.chargeSavedCard.mockRejectedValueOnce(Object.assign(new Error('Your card was declined.'),
+      { type: 'StripeCardError', code: 'card_declined', payment_intent: { id: 'pi_declined', status: 'requires_payment_method' } }))
+    → 409; body.errorCode 'PAYMENT_FAILED'; body.message 'Não foi possível cobrar o cliente. Tente outra tarefa.'
+    task 'available', startedAt null; mapping null; payments.count 0; sendCardChargeFailedEmail called once
   })
-  it('treats requires_action as a hard failure (no 3DS on the proxy device)', async () => {
+  it('treats requires_action as a definite failure (no 3DS on the proxy device)', async () => {
     ctx.stripeMock.chargeSavedCard.mockResolvedValueOnce({ id: 'pi_3ds', status: 'requires_action', client_secret: 'x' } as any)
-    → 402 PAYMENT_FAILED; cancelPaymentIntent('pi_3ds'); task 'available'; payments.count 0; body has no clientSecret
+    → 409 PAYMENT_FAILED; task 'available'; mapping null; payments.count 0; body has no clientSecret; sendCardChargeFailedEmail called once
   })
-  it('reverts the claim when capture fails', async () => {
-    ctx.stripeMock.capturePaymentIntent.mockRejectedValueOnce(new Error('network'))
-    → 402; task 'available', startedAt null; mapping null; payment row exists with status 'failed'; cancelPaymentIntent('pi_test_123')
-  })
-  it('lets exactly one of two different proxies win and releases the other hold', async () => {
-    ctx.stripeMock.chargeSavedCard.mockResolvedValueOnce({ id: 'pi_a', status: 'requires_capture' } as any).mockResolvedValueOnce({ id: 'pi_b', status: 'requires_capture' } as any)
-    ctx.stripeMock.capturePaymentIntent.mockImplementation(async (id) => ({ id, status: 'succeeded', latest_charge: `ch_${id}` }) as any)
-    const [a, b] = await Promise.all([start(proxy1), start(proxy2)])
-    expect([a.status, b.status].sort()).toEqual([200, 400]); loser.body.errorCode 'TASK_NOT_AVAILABLE'
-    expect(ctx.stripeMock.capturePaymentIntent).toHaveBeenCalledTimes(1)
-    expect(ctx.stripeMock.cancelPaymentIntent).toHaveBeenCalledTimes(1)
-    const captured = ctx.stripeMock.capturePaymentIntent.mock.calls[0][0]; const canceled = ctx.stripeMock.cancelPaymentIntent.mock.calls[0][0]
-    expect(new Set([captured, canceled])).toEqual(new Set(['pi_a', 'pi_b']))
+  it('keeps the claim and answers PAYMENT_PENDING when Stripe is unreachable; the retry reuses the key', async () => {
+    ctx.stripeMock.chargeSavedCard.mockRejectedValueOnce(Object.assign(new Error('socket hang up'), { type: 'StripeConnectionError' }))
+    const first = await start(proxy)
+    expect(first.status).toBe(409); expect(first.body.errorCode).toBe('PAYMENT_PENDING')
+    task 'in_progress'; mapping.executorId === proxy.id; payments.count 0; sendCardChargeFailedEmail not called
+    const second = await start(proxy)                      // default mock: succeeded
+    expect(second.status).toBe(200)
+    const keys = ctx.stripeMock.chargeSavedCard.mock.calls.map((c) => c[1]); expect(keys).toHaveLength(2); expect(keys[0]).toBe(keys[1])
     payments.count 1, status 'succeeded'
   })
-  it('same proxy double-tap shares the intent and never cancels the winner', async () => {
-    // default mock returns pi_test_123 for both calls (same idempotency key would in Stripe too)
+  it('keeps the claim on a processing outcome', async () => {
+    ctx.stripeMock.chargeSavedCard.mockResolvedValueOnce({ id: 'pi_proc', status: 'processing', latest_charge: null } as any)
+    → 409 PAYMENT_PENDING; task 'in_progress'; payments.count 0; sendCardChargeFailedEmail not called
+  })
+  it('opens a new claim with a new key when the same proxy retries after a decline', async () => {
+    ctx.stripeMock.chargeSavedCard.mockRejectedValueOnce(Object.assign(new Error('declined'), { type: 'StripeCardError' }))
+    expect((await start(proxy)).status).toBe(409)
+    expect((await start(proxy)).status).toBe(200)
+    const keys = ctx.stripeMock.chargeSavedCard.mock.calls.map((c) => c[1]); expect(keys[0]).not.toBe(keys[1])
+    payments.count 1, status 'succeeded'
+  })
+  it('lets exactly one of two different proxies claim and charges the client once', async () => {
+    const [a, b] = await Promise.all([start(proxy1), start(proxy2)])
+    expect([a.status, b.status].sort()).toEqual([200, 400]); loser.body.errorCode 'TASK_NOT_AVAILABLE'
+    expect(ctx.stripeMock.chargeSavedCard).toHaveBeenCalledTimes(1)
+    expect(ctx.stripeMock.chargeSavedCard.mock.calls[0][0].proxyId).toBe(winner.id)
+    mapping.executorId === winner.id; payments.count 1, status 'succeeded'
+  })
+  it('same proxy double-tap: one PaymentIntent, one payment row, no release', async () => {
     const [a, b] = await Promise.all([start(proxy), start(proxy)])
-    expect([a.status, b.status].sort()).toEqual([200, 400])
-    expect(ctx.stripeMock.cancelPaymentIntent).not.toHaveBeenCalled()
-    expect(ctx.stripeMock.capturePaymentIntent).toHaveBeenCalledTimes(1)
-    payments.count 1 with status 'succeeded'
+    expect([a.status, b.status]).toEqual([200, 200])
+    const keys = new Set(ctx.stripeMock.chargeSavedCard.mock.calls.map((c) => c[1])); expect(keys.size).toBe(1)   // 1 or 2 calls, always the same key
+    task 'in_progress'; mapping.executorId === proxy.id; payments.count 1, status 'succeeded'
+  })
+  it('replays 200 without a second charge once the start succeeded', async () => {
+    expect((await start(proxy)).status).toBe(200); expect((await start(proxy)).status).toBe(200)
+    expect(ctx.stripeMock.chargeSavedCard).toHaveBeenCalledTimes(1)
+  })
+  it('charges offeredPrice for a legacy task without stored fees and an older failed payment row', async () => {
+    task seeded with { offeredPrice: 100, chargedAmount: null, platformFee: null, stripeFee: null, proxyEarnings: null }
+    createPayment(task.id, { paymentIntent: 'pi_legacy', status: 'failed', createdAt: new Date(Date.now() - 3_600_000) })
+    → 200; chargeSavedCard amount 10000; payments.count 2; fetchLatestByTaskId → paymentIntent 'pi_test_123', status 'succeeded'
   })
   ```
 - [ ] **Step 2: Run it, expect failure** — `chargeSavedCard` never called (service still calls
-  `createPaymentIntent`); `requires_action` case returns 200.
-- [ ] **Step 3: Implement** the service per the fixed order; delete the legacy Stripe methods and
-  the payments pass-through; rewrite `start-task.service.spec.ts` with invocation-order assertions
-  (`chargeSavedCard.mock.invocationCallOrder[0] < claimTask.mock.invocationCallOrder[0]`,
-  `claimTask` not called when the card lookup throws, `releaseClaim` called when capture throws).
-- [ ] **Step 4: Run it, expect pass** — `Tests: 13 passed` (5 kept + 8 new).
-- [ ] **Step 5: Verify the repo gate** — `npx tsc --noEmit && npx jest && npm run test:e2e`.
-- [ ] **Step 6: Mark done in ../STATUS.md; commit message** `fix(tasks): P1-T08 start charges before claiming, no requires_action`
+  `createPaymentIntent`); the declined case returns 402; the `requires_action` case returns 200.
+- [ ] **Step 3: Implement** the service per the fixed order, the two dictionary entries, the
+  notification method + mock entry + module import; delete the legacy Stripe methods and the
+  payments pass-through; rewrite `start-task.service.spec.ts` with invocation-order assertions
+  (`claimTask.mock.invocationCallOrder[0] < chargeSavedCard.mock.invocationCallOrder[0]`,
+  `chargeSavedCard.mock.invocationCallOrder[0] < recordSucceededCharge.mock.invocationCallOrder[0]`;
+  `claimTask` and `chargeSavedCard` not called when the card lookup throws; `chargeSavedCard` not
+  called when the CAS is lost and the mapping belongs to another proxy; `releaseClaim` called with
+  the claim's `startedAt` on `StripeCardError` and on `requires_action`; `releaseClaim` and the
+  notification **not** called on `StripeConnectionError`, `StripeIdempotencyError` and
+  `processing`; a rejected `sendCardChargeFailedEmail` still yields `PAYMENT_FAILED`).
+- [ ] **Step 4: Run it, expect pass** — `Tests: 17 passed` (5 kept + 12 new).
+- [ ] **Step 5: Verify the repo gate** — `npx tsc --noEmit && npx jest && npm run test:e2e`;
+  `grep -rn "capture_method\|paymentIntents.capture\|requires_capture" src` prints nothing.
+- [ ] **Step 6: Mark done in ../STATUS.md; commit message** `fix(tasks): P1-T08 start claims before charging, automatic capture, no requires_action`
 
 ---
 
@@ -1122,19 +1407,25 @@ Five inputs no reviewer should accept this phase without seeing tested:
   6. recordTransfer({ taskId, executorId: mapping.executorId, transferId: transfer.id, proxyEarnings: earnings })
   7. rating !== undefined → rateProxyService.execute(...) inside try/catch (Logger.warn on failure; the response stays 200 — rating is optional, D15)
   ```
+  D1: the transfer is `proxyEarnings` = 80 % of `offeredPrice` (R$ 100 → `amount: 8000`); the other
+  20 % (`platformFee`, out of which Stripe already took `stripeFee`) stays in the platform balance.
+  `source_transaction = chargeId` ties the transfer to the start charge (D3), so it never needs
+  available balance. D6: a `disputed` latest payment blocks validate before any write.
   Dictionary: `payment.notConfirmed = { message: 'O pagamento desta tarefa ainda não foi confirmado. Tente novamente em alguns minutos.', statusCode: 409, errorCode: 'PAYMENT_NOT_CONFIRMED' }`.
   `Users.walletBalance` now means "total recebido" (D8): incremented by `proxyEarnings` only here.
 
 - [ ] **Step 1: Write the failing test** — rewrite `validate-task.e2e-spec.ts` seeding
   (`seedTaskPendingValidation(offeredPrice = 100, { stripeAccountReady?, stripeAccountId?, payment? })`
-  creates the payment with `createPayment(task.id, payment ?? { status: 'succeeded', chargeId: 'ch_test_1' })`):
+  creates the task with the factory's D1 fees for that price and the payment with
+  `createPayment(task.id, payment ?? { status: 'succeeded', chargeId: 'ch_test_1', amount: offeredPrice })`):
   ```ts
-  it('completes the task, transfers the offered price from the charge and credits the proxy', async () => {
+  it('completes the task, transfers 80 % of the offered price from the charge and credits the proxy', async () => {
     → 200; task.status 'completed', transferId 'tr_test_123'
     expect(ctx.stripeMock.createTransferFromCharge).toHaveBeenCalledWith(
-      { amount: 10000, destination: 'acct_proxy_test', sourceTransaction: 'ch_test_1', transferGroup: task.id, taskId: task.id }, `task:${task.id}:transfer`)
-    proxy.totalTasksCompleted 1; proxy.walletBalance.toFixed(2) '100.00'; task.platformFee?.toFixed(2) '20.00'; task.proxyEarnings?.toFixed(2) '100.00'
+      { amount: 8000, destination: 'acct_proxy_test', sourceTransaction: 'ch_test_1', transferGroup: task.id, taskId: task.id }, `task:${task.id}:transfer`)
+    proxy.totalTasksCompleted 1; proxy.walletBalance.toFixed(2) '80.00'; task.platformFee?.toFixed(2) '20.00'; task.proxyEarnings?.toFixed(2) '80.00'; task.chargedAmount?.toFixed(2) '100.00'
   })
+  it('computes the 80 % transfer for a legacy task without stored proxyEarnings', ... seed proxyEarnings: null (offeredPrice 100) → amount 8000; wallet '80.00')
   it.each([['pending'], ['failed'], ['refunded']])('refuses with 409 PAYMENT_NOT_CONFIRMED when the latest payment is %s', async (status) => {
     → 409 PAYMENT_NOT_CONFIRMED; createTransferFromCharge not called; status 'verification_required'; transferId null; wallet '0.00'
   })
@@ -1147,10 +1438,10 @@ Five inputs no reviewer should accept this phase without seeing tested:
   })
   it('pays exactly once under concurrent validates', async () => {
     const [a, b] = await Promise.all([validate(), validate()]); expect([a.status, b.status].sort()).toEqual([200, 409])
-    expect(ctx.stripeMock.createTransferFromCharge).toHaveBeenCalledTimes(1); totalTasksCompleted 1; wallet '100.00'
+    expect(ctx.stripeMock.createTransferFromCharge).toHaveBeenCalledTimes(1); totalTasksCompleted 1; wallet '80.00'
   })
   it('increments the wallet atomically across concurrent validations of two tasks', async () => {
-    // two tasks (100 and 50) for the same proxy, two owners → Promise.all → wallet '150.00', totalTasksCompleted 2
+    // two tasks (100 and 50) for the same proxy, two owners → Promise.all → wallet '120.00' (80.00 + 40.00), totalTasksCompleted 2
   })
   it('keeps the existing behaviour for PROXY_ACCOUNT_NOT_READY, rating recorded, rating out of range', ... keep lines 129-190 adjusted to createTransferFromCharge)
   ```
@@ -1159,8 +1450,9 @@ Five inputs no reviewer should accept this phase without seeing tested:
 - [ ] **Step 3: Implement** the service; deletions; rewrite `validate-task.service.spec.ts`
   (`transition` called before `createTransferFromCharge`; revert `transition` called with
   `from: ['completed']` when the transfer rejects; `PAYMENT_NOT_CONFIRMED` with `pending`;
-  `recordTransfer` receives `proxyEarnings` as `Prisma.Decimal` equal to `'100'`).
-- [ ] **Step 4: Run it, expect pass** — `Tests: 15 passed`.
+  `recordTransfer` receives `proxyEarnings` as `Prisma.Decimal` with `toFixed(2) === '80.00'`;
+  `createTransferFromCharge` receives `amount: 8000`).
+- [ ] **Step 4: Run it, expect pass** — `Tests: 16 passed`.
 - [ ] **Step 5: Verify the repo gate** — `npx tsc --noEmit && npx jest && npm run test:e2e`
   (`transaction-history.e2e-spec.ts` still asserts the recomputed `75.62` from its own fixture — it
   is Phase 2 BE-40; it must still pass because it seeds `proxyEarnings` itself).
@@ -1168,7 +1460,7 @@ Five inputs no reviewer should accept this phase without seeing tested:
 
 ---
 
-### Task P1-T13: `POST /tasks/cancel` — CAS first, branch on latest payment
+### Task P1-T13: `POST /tasks/cancel` — dispute block, CAS first, full refund of a succeeded charge
 
 **Files:**
 - Modify: `src/modules/tasks/use-cases/cancel-task.service.ts:13-82` (rewrite) + spec rewrite
@@ -1180,42 +1472,51 @@ Five inputs no reviewer should accept this phase without seeing tested:
 - Modify: `test/tasks/cancel-task.e2e-spec.ts:72-109,132-152`
 
 **Interfaces:**
-- Consumes: `refundPaymentIntent`, `cancelPaymentIntent` (P1-T03); `TasksRepository.transition`,
-  `PaymentsRepository.fetchLatestByTaskId/updateById` (P1-T04).
+- Consumes: `refundPaymentIntent` (P1-T03); `TasksRepository.transition`,
+  `PaymentsRepository.fetchLatestByTaskId/updateById` (P1-T04); `payment.disputed` dictionary entry
+  (added by P1-T11; add it here with the same text if P1-T11 is not merged yet:
+  `{ message: 'O pagamento desta tarefa está em disputa. Fale com o suporte.', statusCode: 409, errorCode: 'PAYMENT_DISPUTED' }`).
 - Produces: `CancelTaskService(stripeService, tasksRepository, paymentsRepository)`;
   `execute({ taskId, userId }): Promise<void>`:
   ```
-  1. task (any status, 404) ; owner (403 CANNOT_CANCEL_TASK) ; status ∉ {available, in_progress} (403) ; in_progress && elapsed ≥ 1 h (403)   [existing]
+  1. task (any status, 404) ; owner (403 CANNOT_CANCEL_TASK) ; status ∉ {available, in_progress} (403) ; in_progress && elapsed ≥ 1 h since startedAt (403)   [existing]
   2. payment = fetchLatestByTaskId(taskId)
+     payment?.status === 'disputed' → 409 PAYMENT_DISPUTED   (D6; nothing written)
   3. transition({ taskId, from: [task.status], to: 'canceled', data: { canceledAt: new Date() } }) === false → 409 TASK_STATUS_CONFLICT
   4. switch (payment?.status)
-     undefined | 'failed' | 'refunded' | 'disputed' → no Stripe call
-     'pending'   → cancelPaymentIntent(payment.paymentIntent); updateById(payment.id, { status: 'failed' })
+     undefined | 'failed' | 'refunded' → no Stripe call
+     'pending'   → no Stripe call; Logger.warn(`legacy pending payment ${payment.id} on canceled task ${taskId}`)   // only rows created before this phase
      'succeeded' → refund = refundPaymentIntent(payment.paymentIntent, `task:${taskId}:refund`)
                    refund.status ∈ {'succeeded','pending'} → updateById(payment.id, { status: 'refunded', refundId: refund.id })
                    else throw
      any throw in 4 → transition({ taskId, from: ['canceled'], to: task.status, data: { canceledAt: null } }) → 500 REFUND_FAILED
   ```
-  D7: the refund is the full `chargedAmount` (no `amount` passed → Stripe refunds the whole charge).
+  D7: the refund is the full `chargedAmount` (= `offeredPrice`; no `amount` passed → Stripe refunds
+  the whole charge); the platform absorbs Stripe's non-refundable fee. There is no intent to cancel:
+  the start charge is captured automatically (D3), so money that moved is returned by refund and an
+  intent that did not succeed holds nothing. The refund key `task:<id>:refund` is shared with the
+  P1-T14 webhook that refunds a charge landing on an already canceled task, so the two can never
+  refund twice. An `in_progress` task without a payment row (a start whose charge outcome is still
+  unknown, P1-T08) cancels without a Stripe call; if that charge later succeeds, P1-T14 refunds it.
 
 - [ ] **Step 1: Write the failing test** — rewrite `cancel-task.e2e-spec.ts:72-152` (keep 27-70,
   154-167):
   ```ts
   it('refunds the full charge and cancels within the grace period', async () => {
-    createPayment(task.id, { paymentIntent: 'pi_refundable', status: 'succeeded' }) → 200
+    createPayment(task.id, { paymentIntent: 'pi_refundable', status: 'succeeded', amount: 100 }) → 200
     expect(ctx.stripeMock.refundPaymentIntent).toHaveBeenCalledWith('pi_refundable', `task:${task.id}:refund`)
     task 'canceled', canceledAt set; payment status 'refunded', refundId 're_test_123'
   })
   it('accepts a refund that Stripe reports as pending', ... refundPaymentIntent.mockResolvedValueOnce({ id: 're_pending', status: 'pending' }) → 200; refundId 're_pending', status 'refunded')
-  it('cancels a pending hold instead of refunding', async () => {
-    createPayment(task.id, { paymentIntent: 'pi_hold', status: 'pending' }) → 200
-    expect(ctx.stripeMock.cancelPaymentIntent).toHaveBeenCalledWith('pi_hold'); refundPaymentIntent not called; payment 'failed'; task 'canceled'
+  it('refuses to cancel when the latest payment is disputed', async () => {
+    createPayment(task.id, { paymentIntent: 'pi_disp', status: 'disputed', disputeId: 'dp_1' }) → 409 PAYMENT_DISPUTED
+    task status unchanged ('in_progress'), canceledAt null; refundPaymentIntent not called; payment still 'disputed'
   })
   it('refunds only the latest payment when an older failed row exists', async () => {
     createPayment(task.id, { paymentIntent: 'pi_old', status: 'failed', createdAt: new Date(Date.now() - 3_600_000) }); createPayment(task.id, { paymentIntent: 'pi_new', status: 'succeeded' })
     → 200; refundPaymentIntent called once with 'pi_new'
   })
-  it.each([['failed'], ['refunded']])('cancels without a Stripe call when the latest payment is %s', ... → 200; no refund/cancel calls)
+  it.each([['failed'], ['refunded'], ['pending']])('cancels without a Stripe call when the latest payment is %s', ... → 200; refundPaymentIntent not called; payment status unchanged)
   it('cancels an available task without payment', ... keep)
   it('cancels an in_progress task without a payment row', ... keep)
   it('restores in_progress when the refund fails', async () => {
@@ -1223,26 +1524,34 @@ Five inputs no reviewer should accept this phase without seeing tested:
     → 500 REFUND_FAILED; task 'in_progress', canceledAt null; payment still 'succeeded'
   })
   ```
-- [ ] **Step 2: Run it, expect failure** — pending hold case → 500 `REFUND_FAILED` (today refunds blindly).
+- [ ] **Step 2: Run it, expect failure** — the disputed case → 200 (today cancels and refunds
+  blindly); the `pending` case → 500 `REFUND_FAILED`.
 - [ ] **Step 3: Implement** the service; deletions; rewrite `cancel-task.service.spec.ts` (branch
-  table: `pending → cancelPaymentIntent`, `succeeded → refundPaymentIntent` with key, `failed → no
-  call`; `transition` to `canceled` happens before the Stripe call; revert `transition` on throw).
-- [ ] **Step 4: Run it, expect pass** — `Tests: 14 passed`.
+  table: `succeeded → refundPaymentIntent` with key, `failed | refunded | pending | none → no call`,
+  `disputed → PAYMENT_DISPUTED` before `transition`; `transition` to `canceled` happens before the
+  Stripe call; revert `transition` on throw).
+- [ ] **Step 4: Run it, expect pass** — `Tests: 15 passed` (the `it.each` gained the `pending` row).
 - [ ] **Step 5: Verify the repo gate** — `npx tsc --noEmit && npx jest && npm run test:e2e`.
-- [ ] **Step 6: Mark done in ../STATUS.md; commit message** `fix(tasks): P1-T13 cancel branches on payment status, CAS first`
+- [ ] **Step 6: Mark done in ../STATUS.md; commit message** `fix(tasks): P1-T13 cancel refunds the full charge, dispute-blocked, CAS first`
 
 ---
 
-### Task P1-T14: Webhooks I — dedupe-first dispatch, `chargeId` on success, guarded failure, refund bookkeeping
+### Task P1-T14: Webhooks I — dedupe-first dispatch, idempotent succeeded write, guarded failure, refund bookkeeping
 
 **Files:**
 - Modify: `src/modules/stripe-webhook/repository/stripe-events.repository.ts:9-20`
 - Modify: `src/modules/stripe-webhook/use-cases/dispatch-stripe-event.service.ts:31-80` (+ spec)
 - Modify: `src/modules/stripe-webhook/use-cases/handle-payment-succeeded.service.ts:10-15` (+ spec),
   `handle-payment-failed.service.ts:10-31` (+ spec), `handle-charge-refunded.service.ts:10-24` (+ spec)
+- Modify: `src/modules/stripe-webhook/stripe-webhook.module.ts:17-30` — `imports` gains
+  `PaymentsModule` (exports `PaymentsRepository` since P1-T04); `TasksRepository` stays a provider
+  (used for `releaseClaim`).
 - Modify: `test/stripe-webhook/stripe-webhook.e2e-spec.ts:69-168,256-282`
 
 **Interfaces:**
+- Consumes: `PaymentsRepository.findByPaymentIntent/recordSucceededCharge/updateById`,
+  `TasksRepository.releaseClaim` (P1-T04); `StripeService.refundPaymentIntent` (P1-T03). The start
+  PaymentIntent carries `metadata: { taskId, proxyId, claimedAt }` (P1-T03/P1-T08).
 - Produces:
   ```ts
   // StripeEventsRepository
@@ -1252,36 +1561,78 @@ Five inputs no reviewer should accept this phase without seeing tested:
   //   event = constructWebhookEvent (400 WEBHOOK_INVALID_SIGNATURE)
   //   if (!(await tryMarkProcessed(event.id, event.type))) { log 'already processed'; return }
   //   try { switch … } catch (e) { await remove(event.id); throw e }     // Stripe retries → reprocessed
-  // HandlePaymentSucceededService.execute(pi)
+  // HandlePaymentSucceededService(prisma, paymentsRepository, stripeService).execute(pi)
   //   chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id ?? null
-  //   payments.updateMany({ where: { paymentIntent: pi.id, status: 'pending' }, data: { status: 'succeeded', ...(chargeId && { chargeId }) } })
-  //   payments.updateMany({ where: { paymentIntent: pi.id, status: 'succeeded', chargeId: null }, data: { chargeId } })  // backfill when start wrote first without a charge id
-  // HandlePaymentFailedService.execute(pi)
-  //   payment = findFirst({ where: { paymentIntent: pi.id, status: 'pending' }, select: { id, taskId } }); !payment → return
-  //   $transaction(async tx => { tx.payments.update({ where: { id }, data: { status: 'failed' } })
+  //   existing = paymentsRepository.findByPaymentIntent(pi.id)
+  //   taskId = existing?.taskId ?? pi.metadata?.taskId
+  //   !taskId → logger.warn(`succeeded intent ${pi.id} matches no task`); return
+  //   payment = paymentsRepository.recordSucceededCharge({ taskId, paymentIntent: pi.id, amount: new Prisma.Decimal(pi.amount).div(100), chargeId })
+  //     (same idempotent write as POST /tasks/start: whichever runs first creates the row, the other only back-fills chargeId)
+  //   task = prisma.tasks.findUnique({ where: { id: taskId }, select: { status: true } })
+  //   task?.status === 'canceled' && payment.status === 'succeeded' →
+  //     refund = stripeService.refundPaymentIntent(pi.id, `task:${taskId}:refund`)   // same key as P1-T13: never a second refund
+  //     paymentsRepository.updateById(payment.id, { status: 'refunded', refundId: refund.id }); logger.warn(`late charge on canceled task ${taskId} refunded`)
+  // HandlePaymentFailedService(prisma, tasksRepository, paymentsRepository).execute(pi)
+  //   legacy = prisma.payments.findFirst({ where: { paymentIntent: pi.id, status: 'pending' }, select: { id, taskId } })
+  //   legacy → $transaction(async tx => { tx.payments.update({ where: { id }, data: { status: 'failed' } })
   //     r = tx.tasks.updateMany({ where: { id: taskId, status: 'in_progress' }, data: { status: 'available', startedAt: null } })
-  //     if (r.count === 1) tx.userTaskMapping.deleteMany({ where: { taskId } }) else logger.warn(`task ${taskId} not in_progress; left untouched`) })
+  //     if (r.count === 1) tx.userTaskMapping.deleteMany({ where: { taskId } }) else logger.warn(`task ${taskId} not in_progress; left untouched`) }); return
+  //   (await paymentsRepository.findByPaymentIntent(pi.id)) → return            // a row exists and is not pending: never downgrade it
+  //   { taskId, proxyId, claimedAt } = pi.metadata ?? {}; any missing → return
+  //   tasksRepository.releaseClaim({ taskId, executorId: proxyId, startedAt: new Date(claimedAt) })
+  //     // releases only that exact claim (status in_progress + same startedAt): closes a start whose outcome was unknown (P1-T08);
+  //     // a no-op when start already released it or a newer claim exists
   // HandleChargeRefundedService.execute(charge)
   //   refundId = charge.refunds?.data[0]?.id; full = charge.amount_refunded === charge.amount
   //   full → updateMany({ where: { paymentIntent }, data: { status: 'refunded', ...(refundId && { refundId }) } })
   //   !full → logger.warn partial refund; no status change (refundId stored if present)
   ```
+  The new `start` writes only `succeeded` rows, so `pending` rows (and the legacy branch of
+  `payment_failed`) exist only for payments created before this phase. There is no
+  capture-related event handling: charges are captured automatically (D3).
 
-- [ ] **Step 1: Write the failing test** — in `stripe-webhook.e2e-spec.ts`:
+- [ ] **Step 1: Write the failing test** — in `stripe-webhook.e2e-spec.ts` (`claimedTask()` seeds an
+  `in_progress` task with `offeredPrice: 100`, `startedAt = T`, a mapping for `proxy`, no payment row;
+  other cases use the factory default price 50, i.e. `amount: 5000` centavos;
+  `meta(task, T) = { taskId: task.id, proxyId: proxy.id, claimedAt: T.toISOString() }`):
   ```ts
-  it('marks a pending payment succeeded and stores the charge id', async () => {
-    createPayment(task.id, { paymentIntent: 'pi_evt_1', status: 'pending' }); mockEvent('payment_intent.succeeded', { id: 'pi_evt_1', latest_charge: 'ch_evt_1' })
+  it('marks a legacy pending payment succeeded and stores the charge id', async () => {
+    createPayment(task.id, { paymentIntent: 'pi_evt_1', status: 'pending' }); mockEvent('payment_intent.succeeded', { id: 'pi_evt_1', amount: 5000, latest_charge: 'ch_evt_1' })
     → 200; payment.status 'succeeded', chargeId 'ch_evt_1'
   })
+  it('writes the payment row from metadata when start has not written it yet', async () => {
+    const { task, T } = await claimedTask()
+    mockEvent('payment_intent.succeeded', { id: 'pi_evt_meta', amount: 10000, latest_charge: 'ch_evt_meta', metadata: meta(task, T) })
+    → 200; payments for task = 1: status 'succeeded', chargeId 'ch_evt_meta', amount.toFixed(2) '100.00'; task still 'in_progress'
+  })
+  it('is a no-op when start already wrote the row', async () => {
+    createPayment(task.id, { paymentIntent: 'pi_evt_dup', status: 'succeeded', chargeId: 'ch_dup' })
+    mockEvent('payment_intent.succeeded', { id: 'pi_evt_dup', amount: 5000, latest_charge: 'ch_dup', metadata: { taskId: task.id } })
+    → 200; payments count 1; chargeId 'ch_dup'; refundPaymentIntent not called
+  })
+  it('refunds a charge that lands on a canceled task', async () => {
+    task status 'canceled', no payment; mockEvent('payment_intent.succeeded', { id: 'pi_evt_late', amount: 5000, latest_charge: 'ch_late', metadata: { taskId: task.id, proxyId: proxy.id, claimedAt: new Date().toISOString() } })
+    → 200; expect(ctx.stripeMock.refundPaymentIntent).toHaveBeenCalledWith('pi_evt_late', `task:${task.id}:refund`); payment 'refunded', refundId 're_test_123'
+  })
   it('does not touch a failed payment on payment_intent.succeeded', ... status 'failed' stays 'failed', chargeId null)
-  it('reverts an in_progress task on payment_failed only while the payment is pending', ... (existing case 96-139, now using createPayment { status: 'pending' }) → available, mapping null, payment failed)
+  it('reverts an in_progress task on payment_failed only while the legacy payment is pending', ... (existing case 96-139, now using createPayment { status: 'pending' }) → available, mapping null, payment failed)
   it('leaves a verification_required task untouched on payment_failed', async () => {
     task verification_required + mapping + pending payment → 200; task.status 'verification_required'; mapping kept; payment 'failed'
   })
   it('ignores payment_failed for an already succeeded payment', ... succeeded stays succeeded, task in_progress, mapping kept)
-  it('marks payment refunded on a full charge.refunded', ... { payment_intent: 'pi_evt_3', amount: 12539, amount_refunded: 12539, refunds: { data: [{ id: 're_abc' }] } } → 'refunded', refundId 're_abc')
-  it('keeps the stored refundId when charge.refunded has no refunds list', ... createPayment { status: 'succeeded', refundId: 're_kept' }; event { payment_intent, amount: 12539, amount_refunded: 12539 } → status 'refunded', refundId 're_kept')
-  it('does not mark a partial refund as refunded', ... amount_refunded: 5000 → status stays 'succeeded')
+  it('releases the open claim named by metadata when no payment row exists', async () => {
+    const { task, T } = await claimedTask()
+    mockEvent('payment_intent.payment_failed', { id: 'pi_evt_fail', metadata: meta(task, T) })
+    → 200; task 'available', startedAt null; mapping null; payments count 0
+  })
+  it('ignores payment_failed metadata for a claim that is no longer open', async () => {
+    const { task, T } = await claimedTask()
+    mockEvent('payment_intent.payment_failed', { id: 'pi_evt_stale', metadata: meta(task, new Date(T.getTime() - 60_000)) })
+    → 200; task still 'in_progress' with startedAt T; mapping kept
+  })
+  it('marks payment refunded on a full charge.refunded', ... { payment_intent: 'pi_evt_3', amount: 5000, amount_refunded: 5000, refunds: { data: [{ id: 're_abc' }] } } → 'refunded', refundId 're_abc')
+  it('keeps the stored refundId when charge.refunded has no refunds list', ... createPayment { status: 'succeeded', refundId: 're_kept' }; event { payment_intent, amount: 5000, amount_refunded: 5000 } → status 'refunded', refundId 're_kept')
+  it('does not mark a partial refund as refunded', ... amount: 5000, amount_refunded: 2500 → status stays 'succeeded')
   it('processes the same event only once, even concurrently', async () => {
     mockEvent twice with id 'evt_idem' (constructWebhookEvent.mockReturnValue, not Once) and a pending payment
     const [a, b] = await Promise.all([postWebhook(), postWebhook()]); expect(a.status).toBe(200); expect(b.status).toBe(200)
@@ -1290,15 +1641,20 @@ Five inputs no reviewer should accept this phase without seeing tested:
   ```
   `dispatch-stripe-event.service.spec.ts`: `eventsRepo.tryMarkProcessed.mockResolvedValue(false)` →
   no handler called; handler rejects → `remove` called with `'evt_1'` and the error propagates.
-- [ ] **Step 2: Run it, expect failure** — chargeId stays `null`; verification_required task flips
-  to `available`; concurrent delivery writes the handler twice or 500s on the dedupe insert.
-- [ ] **Step 3: Implement** repository, dispatcher, three handlers; update their unit specs
-  (`handle-payment-failed.service.spec.ts` now mocks an interactive `$transaction` callback with a
-  `tx` object; `handle-charge-refunded.service.spec.ts` adds `amount/amount_refunded` to fixtures).
-- [ ] **Step 4: Run it, expect pass** — webhook e2e `Tests: 13 passed` (incl. the untouched
+- [ ] **Step 2: Run it, expect failure** — chargeId stays `null`; the metadata case writes no row;
+  the canceled-task case is not refunded; verification_required task flips to `available`;
+  concurrent delivery writes the handler twice or 500s on the dedupe insert.
+- [ ] **Step 3: Implement** repository, dispatcher, three handlers, module import; update their
+  unit specs (`handle-payment-succeeded.service.spec.ts`: `recordSucceededCharge` called with the
+  metadata `taskId` and `amount` `'100'` for `pi.amount = 10000`, refund only when the task is
+  `canceled`; `handle-payment-failed.service.spec.ts` mocks an interactive `$transaction` callback
+  with a `tx` object for the legacy branch and asserts `releaseClaim` is called with
+  `startedAt: new Date(claimedAt)` only when no row exists and the metadata is complete;
+  `handle-charge-refunded.service.spec.ts` adds `amount/amount_refunded` to fixtures).
+- [ ] **Step 4: Run it, expect pass** — webhook e2e `Tests: 18 passed` (incl. the untouched
   `account.updated` and the `payout.failed` case still green until P1-T15 rewrites it).
 - [ ] **Step 5: Verify the repo gate** — `npx tsc --noEmit && npx jest && npm run test:e2e`.
-- [ ] **Step 6: Mark done in ../STATUS.md; commit message** `fix(stripe-webhook): P1-T14 dedupe first, chargeId on success, guarded payment_failed`
+- [ ] **Step 6: Mark done in ../STATUS.md; commit message** `fix(stripe-webhook): P1-T14 dedupe first, idempotent succeeded write, guarded payment_failed`
 
 ---
 
@@ -1307,8 +1663,9 @@ Five inputs no reviewer should accept this phase without seeing tested:
 **Files:**
 - Modify: `src/modules/stripe-webhook/use-cases/handle-payout-failed.service.ts:1-81` (rewrite; deps
   become `PrismaService` only) + spec rewrite; `handle-charge-disputed.service.ts:12-69` (+ spec);
-  `handle-account-updated.service.ts:12-27` (+ spec); `stripe-webhook.module.ts:6-7,22-23` (drop
-  `AuthRepository`, `TasksRepository`).
+  `handle-account-updated.service.ts:12-27` (+ spec); `stripe-webhook.module.ts:5,20` (drop
+  `AuthRepository`; keep `TasksRepository`, which P1-T14's `payment_failed` handler uses for
+  `releaseClaim`).
 - Delete: `TasksRepository.fetchTaskByTransferId`, `markPayoutFailed` (`tasks.repository.ts:261-304`,
   DTO `:20-22,28`); `StripeService.reverseTransfer`, `listPayoutTransactions`
   (`stripe.service.ts:103-112`) + mock entries.
@@ -1329,7 +1686,7 @@ Five inputs no reviewer should accept this phase without seeing tested:
   //   paymentIntentId as today; payment = findFirst({ where: { paymentIntent }, select: { id, status, taskId, task: { select: { status } } } }); !payment → return
   //   payment.status === 'disputed' → return (idempotent)
   //   payments.update({ where: { id }, data: { status: 'disputed', disputeId: dispute.id } }); logger.warn(`dispute ${id} on task ${taskId} (${task.status}) — manual review`)
-  //   (no wallet decrement — D6/D8: manual review decides; finish/validate are blocked by P1-T11/P1-T12)
+  //   (no wallet decrement — D6/D8: manual review decides; finish/validate/cancel are blocked by P1-T11/P1-T12/P1-T13, D6)
   ```
   App side: `payoutIssue` is surfaced in Phase 2 via `GET /auth/me` (BE-16/D10) and rendered in Phase 3
   (APP-21 banner).
@@ -1361,7 +1718,7 @@ Five inputs no reviewer should accept this phase without seeing tested:
   (payout: `users.updateMany` called with `{ where: { stripeAccountId: 'acct_1' }, data: { payoutIssue: true } }`
   and nothing else; account: `updateMany` not called when `id` missing; dispute: second call with
   `status: 'disputed'` does not call `update`).
-- [ ] **Step 4: Run it, expect pass** — webhook e2e `Tests: 17 passed`.
+- [ ] **Step 4: Run it, expect pass** — webhook e2e `Tests: 22 passed` (P1-T14's 18 + 4).
 - [ ] **Step 5: Verify the repo gate** — `npx tsc --noEmit && npx jest && npm run test:e2e`.
 - [ ] **Step 6: Mark done in ../STATUS.md; commit message** `fix(stripe-webhook): P1-T15 payout.failed flags, disputes persisted, no claw-back`
 
@@ -1407,8 +1764,8 @@ Five inputs no reviewer should accept this phase without seeing tested:
     const result = await job.execute()
     expect(result.released).toEqual([a.task.id]); expect(result.skipped.sort()).toEqual([c.task.id, d.task.id].sort())
     expect(ctx.stripeMock.createTransferFromCharge).toHaveBeenCalledTimes(1)
-    expect(ctx.stripeMock.createTransferFromCharge).toHaveBeenCalledWith(expect.objectContaining({ sourceTransaction: 'ch_a', amount: 5000 }), `task:${a.task.id}:transfer`)   // factory default price 50
-    statuses: a 'completed' (transferId 'tr_test_123'), b/c/d 'verification_required'; a.proxy.walletBalance '50.00'
+    expect(ctx.stripeMock.createTransferFromCharge).toHaveBeenCalledWith(expect.objectContaining({ sourceTransaction: 'ch_a', amount: 4000 }), `task:${a.task.id}:transfer`)   // factory default price 50 → proxyEarnings 40.00 (80 %)
+    statuses: a 'completed' (transferId 'tr_test_123'), b/c/d 'verification_required'; a.proxy.walletBalance '40.00'
   })
   it('is idempotent: a second run releases nothing', ... execute() again → released [] and transfer still called once)
   it('exposes the cron metadata', () => { const reg = ctx.app.get(SchedulerRegistry); expect(reg.getCronJob('auto-release-tasks')).toBeDefined() })
@@ -1430,51 +1787,71 @@ Five inputs no reviewer should accept this phase without seeing tested:
 - Modify: `/Users/leandromartins/Documents/proxy-api/CLAUDE.md:110-113` (route map), `:126-135`
   (Database models), `:137-144` (Stripe Connect), `:146-157` (Stripe webhooks), `:159-168` (3DS /
   async payment flow), "## Environment variables" (required/optional lists), `:12` (Stack line about
-  payments: "PaymentIntent off-session with manual capture; transfers with `source_transaction`").
+  payments: "PaymentIntent created and confirmed off-session at start, automatic capture; transfers
+  with `source_transaction` at validate").
 
 **Interfaces:** none (docs). Content to write (replace the sections' text, keep headings):
 - Route map: `POST /card/setup-intent` (returns `{ clientSecret, setupIntentId }`), `POST /card/create
-  { paymentMethodId }`; `GET /tasks/price-preview?offeredPrice=` (numbers), `GET /tasks/:id/proof`
-  (streams `image/jpeg` from storage, owner/executor only); `POST /tasks/finish` "multipart `file`
+  { paymentMethodId }`; `GET /tasks/price-preview?offeredPrice=` (five numbers: `offeredPrice`,
+  `platformFee`, `stripeFee`, `chargedAmount`, `proxyEarnings`), `GET /tasks/:id/proof` (streams
+  `image/jpeg` from storage, owner/executor only); `POST /tasks/finish` "multipart `file`
   **required**, JPG/PNG/WEBP/HEIC, stored as JPEG ≤ 1600 px"; `POST /tasks/create` "CLIENT only,
-  `offeredPrice` 10–10 000 with 2 dp, `cardDetails: { savedCard } | { paymentMethodId }`".
+  `offeredPrice` 20–10 000 with 2 dp, `cardDetails: { savedCard } | { paymentMethodId }`".
 - Database models: `Tasks` gains `stripeFee`, `chargedAmount` (set at create from
-  `src/common/money.ts`), `proxyEarnings = offeredPrice`; `Payments` `amount = chargedAmount`,
-  `chargeId` (from capture / `payment_intent.succeeded`), `disputeId`, unique `paymentIntent`, created
-  as `pending` by the atomic claim and flipped to `succeeded` right after capture; `Users.payoutIssue`;
+  `src/common/money.ts`): `chargedAmount = offeredPrice`, `platformFee = 20 %`,
+  `proxyEarnings = 80 %` (`offeredPrice − platformFee`), `stripeFee = 3.99 % × chargedAmount + 0.39`
+  (paid by the platform; platform net = `platformFee − stripeFee`, derived, not stored);
+  `Tasks.startedAt` is the claim time; `Payments` `amount = chargedAmount`, `chargeId` (from the
+  start response or `payment_intent.succeeded`), `disputeId`, unique `paymentIntent`, written as
+  `succeeded` by `start` after Stripe answers (or by the webhook from PaymentIntent metadata —
+  either may go first), `pending` only on rows created before Phase 1; `Users.payoutIssue`;
   `Users.walletBalance` = "total recebido"; `Cards`: one active card per user (partial unique index
-  `cards_one_active_per_user`); lifecycle sentence: `accepted`/`on_the_way` enum-only; `payout_failed`
-  kept for old rows, never written.
-- Stripe Connect: D1 fee model with the R$ 100 example (client pays 125.39 = 100 + 20.00 + 5.39,
-  proxy receives 100.00, platform keeps 20.00, Stripe 5.39); `start` sequence hold → claim → capture;
-  `validate` sequence payment check → CAS → `transfers.create({ source_transaction, transfer_group },
-  { idempotencyKey: task:<id>:transfer })` → one transaction; `cancel` branches; cards via SetupIntent
-  (`usage: 'off_session'`), previous PM detached.
+  `cards_one_active_per_user`); lifecycle sentence: `accepted`/`on_the_way` enum-only;
+  `payout_failed` kept for old rows, never written.
+- Stripe Connect: separate charges and transfers; D1 fee model with the R$ 100 example (client pays
+  100.00; proxy receives 80.00; platform fee 20.00, of which Stripe takes 4.38, platform net 15.62);
+  `start` sequence: CAS claim (`available → in_progress`, mapping) → PaymentIntent created and
+  confirmed off-session for `chargedAmount`, automatic capture, idempotency key
+  `start:<taskId>:<proxyId>:<startedAt ms>`, metadata `{ taskId, proxyId, claimedAt }`,
+  `transfer_group = taskId` → `succeeded` payment row; definite failure → claim released, proxy gets
+  409 `PAYMENT_FAILED`, client gets the "Confirme seu cartão na Carteira" e-mail; unknown outcome →
+  claim kept, 409 `PAYMENT_PENDING`; funds sit in the platform balance until `validate`; `validate`
+  sequence payment check → CAS → `transfers.create({ amount: proxyEarnings, source_transaction:
+  chargeId, transfer_group }, { idempotencyKey: task:<id>:transfer })` → one transaction; `cancel`:
+  disputed → 409, otherwise CAS then full refund of a succeeded charge (key `task:<id>:refund`);
+  cards via SetupIntent (`usage: 'off_session'`), previous PM detached.
 - Stripe webhooks: two endpoints/secrets (`STRIPE_WEBHOOK_SECRET` platform events,
   `STRIPE_CONNECT_WEBHOOK_SECRET` connected-account events; `constructWebhookEvent` tries both);
   dedupe **before** the handler (row removed if the handler throws so Stripe's retry reprocesses);
-  the six handlers as implemented in P1-T14/T15 (`payout.failed` → `payoutIssue` flag only;
-  `charge.dispute.created` → `disputed` + `disputeId`, blocks finish/validate, manual review).
+  the six handlers as implemented in P1-T14/T15 (`payment_intent.succeeded` writes or completes the
+  row idempotently and refunds a charge on a canceled task; `payment_intent.payment_failed` releases
+  only the open claim named by metadata; `payout.failed` → `payoutIssue` flag only;
+  `charge.dispute.created` → `disputed` + `disputeId`, blocks finish/validate/cancel, manual review).
 - 3DS section: rename to "### Card authentication and the start charge": 3DS happens once at card
-  save (SetupIntent confirmed on the client's device); `/tasks/start` always returns
-  `{ status: 'succeeded' }` or `402 PAYMENT_FAILED` ("O pagamento do cliente foi recusado. A tarefa
-  continua disponível."); no `requires_action`, no `clientSecret`.
+  save (SetupIntent confirmed on the client's device); `/tasks/start` returns `{ status: 'succeeded' }`,
+  `409 PAYMENT_FAILED` ("Não foi possível cobrar o cliente. Tente outra tarefa.") or
+  `409 PAYMENT_PENDING`; no SCA challenge on the proxy's device, no `clientSecret` in the response.
+  Write the prose without the literal strings `requires_action`, `capture_method` or "manual
+  capture" (the Step 3 greps count them).
 - Environment: optional `STRIPE_CONNECT_WEBHOOK_SECRET`, `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`,
   `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `PROOF_DIR` (default `./tmp/proofs`), `STRIPE_PUBLIC_KEY`
   now optional/unused by the API; daily cron `0 3 * * *` America/Sao_Paulo auto-release after 7 days.
-- Error codes added this phase (list for SPEC §3.3 sync in Phase 2): `PAYMENT_NOT_CONFIRMED` 409,
-  `PAYMENT_DISPUTED` 409, `PROOF_PHOTO_REQUIRED` 400, `TASK_STATUS_CONFLICT` 409, `USER_NOT_CLIENT` 403,
+- Error codes added or changed this phase (list for SPEC §3.3 sync in Phase 2): `PAYMENT_NOT_CONFIRMED`
+  409, `PAYMENT_DISPUTED` 409, `PAYMENT_PENDING` 409, `PAYMENT_FAILED` now 409 (was 402) with the D3
+  message, `PROOF_PHOTO_REQUIRED` 400, `TASK_STATUS_CONFLICT` 409, `USER_NOT_CLIENT` 403,
   `CARD_NOT_CONFIRMED` 400, `CARD_ALREADY_EXISTS` 409; removed: `TASK_STARTED_AT_NOT_VALID`,
   `TASK_NOT_AVAILABLE_FOR_VALIDATION`, `TRANSFER_FAILED`.
 
 - [ ] **Step 1: Write the failing check** — `cd /Users/leandromartins/Documents/proxy-api && grep -c
-  "requires_action" CLAUDE.md` → currently `3`.
+  "requires_action" CLAUDE.md` → non-zero (`2` on 2026-11-23); `grep -c "chargedAmount" CLAUDE.md`
+  → `0`.
 - [ ] **Step 2: Rewrite** the sections listed above.
-- [ ] **Step 3: Verify** — `grep -c "requires_action" CLAUDE.md` → `0`; each of
-  `grep -n "setup-intent\|price-preview\|STRIPE_CONNECT_WEBHOOK_SECRET\|payoutIssue\|chargedAmount\|source_transaction\|PROOF_PHOTO_REQUIRED\|cards_one_active_per_user" CLAUDE.md`
+- [ ] **Step 3: Verify** — `grep -c "requires_action" CLAUDE.md` → `0`; `grep -c "capture_method"
+  CLAUDE.md` → `0`; `grep -ci "manual capture\|requires_capture" CLAUDE.md` → `0`; each of
+  `grep -n "setup-intent\|price-preview\|STRIPE_CONNECT_WEBHOOK_SECRET\|payoutIssue\|chargedAmount\|source_transaction\|PROOF_PHOTO_REQUIRED\|PAYMENT_PENDING\|cards_one_active_per_user" CLAUDE.md`
   returns at least one line; route map lists every controller in `src/modules/*/controllers`
   (`ls src/modules/*/controllers | wc -l` equals the number of routes documented).
-- [ ] **Step 4: Mark done in ../STATUS.md; commit message** `docs(api): P1-T17 CLAUDE.md money sections for the D1 model`
+- [ ] **Step 4: Mark done in ../STATUS.md; commit message** `docs(api): P1-T17 CLAUDE.md money sections for the D1/D3 model`
 
 ---
 
@@ -1482,7 +1859,7 @@ Five inputs no reviewer should accept this phase without seeing tested:
 
 **Files (repo `/Users/leandromartins/Documents/proxy-app`):**
 - Modify: `src/apis/tasks/tasks-api-types.ts:39-48` (`TPayment`), `:72-88` (`TTask`), `:132-135`
-  (`TCreateTaskPayload.cardDetails`), `:168-170` (`TStartTaskResult`), append `TPricePreview`.
+  (`TCreateTaskPayload.cardDetails`), `:168-170` (`TStartTaskResult`), append `TChargePreview`.
 - Modify: `src/apis/cards/cards-api-types.ts:17-19` (`TCreateCardPayload`), append `TSetupIntent`.
 - Modify: `src/feature/cards/components/AddCardSheet.tsx:109` — `{ token: paymentMethod.id }` →
   `{ paymentMethodId: paymentMethod.id }` (key rename only; the SetupIntent confirm flow is Phase 3).
@@ -1498,12 +1875,19 @@ Five inputs no reviewer should accept this phase without seeing tested:
   export interface TTask { …existing…; proxyEarnings: string | null; platformFee: string | null; stripeFee: string | null; chargedAmount: string | null; … }
   export interface TCreateTaskPayload { …; cardDetails: { savedCard: string } | { paymentMethodId: string } }
   export type TStartTaskResult = { status: 'succeeded' }
-  export interface TPricePreview { offeredPrice: number; platformFee: number; stripeFee: number; chargedAmount: number; proxyEarnings: number }
+  export interface TChargePreview { offeredPrice: number; platformFee: number; stripeFee: number; chargedAmount: number; proxyEarnings: number }   // GET /tasks/price-preview
   // cards-api-types.ts
   export interface TCreateCardPayload { paymentMethodId: string }
   export interface TSetupIntent { clientSecret: string; setupIntentId: string }
   ```
-  Route functions (`cardsApis.setupIntent`, `tasksApis.pricePreview`), hooks (`useChargePreview`,
+  `TChargePreview` keeps the same five numeric fields as the backend `PricePreview` (P1-T07); the
+  name matches what the Phase 3 plan already consumes. Under D1 `chargedAmount === offeredPrice` in
+  every response (the client pays exactly the typed price) and `proxyEarnings` is 80 %; the app's
+  copy change (client sees no fee lines, proxy sees "Você recebe") belongs to Phase 3, not here —
+  this task changes types only. `PAYMENT_FAILED` from `/tasks/start` is now a 409 with the message
+  "Não foi possível cobrar o cliente. Tente outra tarefa." and `PAYMENT_PENDING` (409) is new; the
+  app already shows `extractErrorMessage`, so no code change is needed here.
+  Route functions (`cardsApis.setupIntent`, `tasksApis.pricePreview`), hooks (`useChargePreviewQuery`,
   `useConfirmSetupIntent`) and screens are Phase 3 (P3 tasks "Cards via SetupIntent", "Money copy from
   backend numbers", "Payment status banner"). `ACTIVE_TASK_STATUSES` removal is CON-10 → Phase 3.
 
@@ -1511,6 +1895,6 @@ Five inputs no reviewer should accept this phase without seeing tested:
   "requires_action" src app -r` → 2 hits (`tasks-api-types.ts:170`, `app/(app)/tasks/[id]/index.tsx:104`).
 - [ ] **Step 2: Apply** the type changes and the two call-site edits above.
 - [ ] **Step 3: Verify** — `grep -rn "requires_action" src app` → no output;
-  `grep -n "chargedAmount\|stripeFee\|TPricePreview\|TSetupIntent\|paymentMethodId" src/apis/tasks/tasks-api-types.ts src/apis/cards/cards-api-types.ts` → each symbol present;
+  `grep -n "chargedAmount\|stripeFee\|TChargePreview\|TSetupIntent\|paymentMethodId" src/apis/tasks/tasks-api-types.ts src/apis/cards/cards-api-types.ts` → each symbol present;
   `npx tsc --noEmit && npx eslint .` → clean (and `npm test` if Phase 0 added it).
 - [ ] **Step 4: Mark done in ../STATUS.md; commit message** `chore(apis): P1-T18 wire types for the Phase 1 money contract`

@@ -72,11 +72,11 @@ Implements D1–D7, D19. **2026-11-23:** D1 is now 80/20 (client pays exactly `o
 - Cards via SetupIntent: `POST /card/setup-intent` returns `clientSecret`; app confirms on device;
   `POST /card/create { paymentMethodId }` verifies the PM is attached + `setup_future_usage`; previous
   card detached; partial unique index on active card (BE-32, BE-05).
-- `/tasks/start`: load owner card → `paymentIntents.create({ amount: toCentavos(chargedAmount),
-  currency: 'brl', customer, payment_method, confirm: true, off_session: true,
-  transfer_group: taskId }, { idempotencyKey })` → only on `succeeded`: `$transaction([CAS
-  available→in_progress, mapping insert, payment row succeeded + chargeId])`; `count === 0` → cancel
-  PI + `TASK_NOT_AVAILABLE`; non-succeeded → `PAYMENT_FAILED` 402, nothing written (BE-02, BE-05).
+- `/tasks/start` (amended 2026-11-23, see the plan's Amendments): CAS claim first (`available→in_progress`
+  + mapping), then `paymentIntents.create({ amount: toCentavos(chargedAmount), currency: 'brl', customer,
+  payment_method, confirm: true, off_session: true, transfer_group: taskId }, { idempotencyKey:
+  'start:<taskId>:<proxyId>:<startedAt ms>' })`; `succeeded` → payment row; definite failure → release
+  claim + notify client + 409 `PAYMENT_FAILED`; unknown outcome → keep claim, 409 `PAYMENT_PENDING` (BE-02, BE-05).
   `requires_action` removed from `StartTaskResult`.
 - CAS on every transition in `TasksRepository.transition(id, from[], to, data)`; `finish` from
   `in_progress`, `cancel` from `available|in_progress`, `validate` from `verification_required` (BE-02).
