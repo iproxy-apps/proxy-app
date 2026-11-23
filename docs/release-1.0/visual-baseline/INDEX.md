@@ -25,13 +25,13 @@ screen reachable without data, captured before any Phase 3 change.
 | `auth-sign-in--empty.png` | `/(auth)/sign-in` | empty | `baseline/auth.yaml`: "Voltar" ×2 → tap "Já tenho conta" |
 | `auth-forgot-password--empty.png` | `/(auth)/forgot-password` | empty (email step; input autofocused, keyboard up) | `baseline/auth.yaml`: tap "Esqueci a senha" |
 | `tabs-home--empty.png` | `/(app)/(tabs)/home` (CLIENT) | empty (no tasks) | `baseline/client-shell.yaml`: seed + sign in as `cliente@baseline.test` |
-| `tabs-history--empty.png` | `/(app)/(tabs)/history` (CLIENT) | empty | `baseline/client-shell.yaml`: tap tab "Histórico" |
+| `tabs-history--empty.png` | `/(app)/(tabs)/history` (CLIENT) | "Em construção" placeholder (`TabPlaceholder`), not an empty history list | `baseline/client-shell.yaml`: tap tab "Histórico" |
 | `tabs-profile--loaded.png` | `/(app)/(tabs)/profile` (CLIENT) | loaded (card row "Adicionar") | `baseline/client-shell.yaml`: tap tab "Perfil" |
 | `cards--empty.png` | `/(app)/cards` | empty (no saved card) | `baseline/client-shell.yaml`: tap row "Cartão" |
 | `tasks-create--step1-empty.png` | `/(app)/tasks/create` | step 1, empty (top of the scroll) | `baseline/client-shell.yaml`: "Voltar" → tab "Início" → tap "Criar nova tarefa" |
 | `proxy-tabs-home--empty.png` | `/(app)/(tabs)/home` (PROXY) | empty (no tasks to accept) | `baseline/proxy-shell.yaml`: seed + sign in as `proxy@baseline.test` (`READY=0`) |
 | `proxy-tabs-wallet--not-onboarded.png` | `/(app)/(tabs)/wallet` (PROXY) | not onboarded ("Configurar recebimento") | `baseline/proxy-shell.yaml`: tap tab "Carteira" |
-| `proxy-tabs-history--empty.png` | `/(app)/(tabs)/history` (PROXY) | empty | `baseline/proxy-shell.yaml`: tap tab "Histórico" |
+| `proxy-tabs-history--empty.png` | `/(app)/(tabs)/history` (PROXY) | "Em construção" placeholder (`TabPlaceholder`), not an empty history list | `baseline/proxy-shell.yaml`: tap tab "Histórico" |
 | `proxy-tabs-profile--loaded.png` | `/(app)/(tabs)/profile` (PROXY) | loaded | `baseline/proxy-shell.yaml`: tap tab "Perfil" |
 
 ## Known deviations at capture

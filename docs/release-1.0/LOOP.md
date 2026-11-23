@@ -100,10 +100,13 @@ Git is the memory. The conversation is a cache.
   (`feat|fix|test|chore(<area>): <task id> <title>`, no Claude attribution, `STATUS.md` and card
   deletion in the same commit). It never pushes and never touches `main`. The reviewer's diff is
   `git diff` of the working tree against the branch head, so it is exactly one task.
+  **Two-commit rule:** for a task whose code lives in proxy-api, the orchestrator commits the code in
+  proxy-api and the STATUS/card change in proxy-app as `chore(docs): <task id> status`; app-side tasks
+  carry the STATUS change in their own commit.
 
 - **`STATUS.md` → `## Now` block** (new, replaces the one-liner) always holds:
   `task`, `step` (pick/card/build/review/gate/device/record), `files touched so far`, `last gate result`,
-  `waiting on owner`. Updated at every step change, not only at task end. After compaction the
+  `waiting on owner`, `next task`. Updated at every step change, not only at task end. After compaction the
   orchestrator re-reads this block first and resumes from `step`.
 - **Evidence line per task** in the STATUS table `Notes` column: `jest 12/12 · e2e 3/3 · maestro
   sign-up,sign-in · shots 2026-11-24` — short, so the board stays readable.
@@ -142,7 +145,7 @@ The owner validated the current screens. Until Phase 4 starts, the app's look is
   (History) and only for structure, never colours.
 - **Baseline capture** (one-time, before P3-T01): dev build on the simulator, one screenshot per screen
   and per major state, stored in `docs/release-1.0/visual-baseline/<route>--<state>.png` with an index
-  `visual-baseline/INDEX.md` (route, state, how to reach it). Committed by the owner. Phase 4 replaces it.
+  `visual-baseline/INDEX.md` (route, state, how to reach it). Committed on `release-1.0` (D30). Phase 4 replaces it.
   **Captured 2026-11-23** (L-T05): 15 screens on device A (iPhone 17 Pro, iOS 26.5), app source `e7ed12e`, flows `.maestro/flows/baseline/`.
 - **Rule for implementers**: a Phase 0–3 task may add or change layout only where its task text says
   so (e.g. `PaymentStatusBanner`, History tab, `QueryErrorCard`). New UI reuses an existing component or
@@ -202,13 +205,14 @@ and collects screenshots into `scratch/runs/<timestamp>/`.
   (gitignored).
 - `down`: stops **only** what `.dev-stack/` lists (the compose container is left as found).
 - Test hooks (`reset-backend-state`, `mark-account-ready`, seed users) live in a `TestHooksModule`
-  registered only when `LOOP_TEST_HOOKS=1` **and** `NODE_ENV !== 'production'`; the production env
+  registered unconditionally; a request-time guard returns 404 unless `LOOP_TEST_HOOKS=1` **and**
+  `NODE_ENV !== 'production'`, and 403 unless the database host is loopback; the production env
   schema (P5-T10) rejects the variable outright.
 - App side: `expo run:ios --device "<udid>"` once per native-dependency change; Metro started with
   `EXPO_PUBLIC_API_URL=http://localhost:3333` in its environment (the simulator reaches the host as
   localhost); reused across runs.
-- Nothing outside the two Proxy repos is read for configuration, started, or modified. Docker
-  containers are named `proxy-*` so a stray one is identifiable.
+- Nothing outside the two Proxy repos is read for configuration, started, or modified. The compose
+  container is named `proxy` so a stray one is identifiable.
 
 ## 11. Session protocol (replaces START-HERE "Session protocol")
 

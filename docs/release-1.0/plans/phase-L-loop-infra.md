@@ -4,6 +4,23 @@
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
 > checkbox (`- [ ]`) syntax for tracking. Update `../STATUS.md` when a task starts and finishes.
 
+> **Superseded by implementation (2026-11-23).** Where this plan and the shipped code differ, the
+> code wins. The source of truth is `proxy-app/.maestro/README.md`, `proxy-api/scripts/dev-stack.sh`
+> and `proxy-app/scripts/device.sh`. Known differences:
+> - Metro is started with `npx expo start` **without** `--dev-client`.
+> - Maestro is installed with `brew install mobile-dev-inc/tap/maestro`; Java is brew `openjdk@25`
+>   reached through `JAVA_HOME` in `device.sh` (no temurin cask).
+> - `takeScreenshot` uses plain names (e.g. `auth--sign-in`); `device.sh test` copies the PNGs from
+>   Maestro's run output dir into `.dev-stack/shots/`.
+> - Tag runs target `.maestro` (e.g. `device.sh test A .maestro --include-tags smoke`), not
+>   `.maestro/flows`.
+> - The `status`/`up` hooks probe is `POST /__test/seed-user` with `{}` → 400 = hooks on, 404 = off
+>   (never `POST /__test/reset`, which wipes the database).
+> - Two-commit rule (LOOP §6, D30): an api task commits its code in proxy-api and its STATUS/card
+>   change in proxy-app as `chore(docs): <task id> status`.
+> - Ownership checks in both scripts compare the recorded command name **and** start time
+>   (`ps -o lstart=`) before signalling a pid.
+
 **Goal:** stand up everything `../LOOP.md` assumes exists so that the first real task (`P0-T01`) can
 run through the full pick → build → review → gate → device → record iteration.
 
@@ -303,15 +320,17 @@ Testcontainers; bash; Expo SDK 57 dev client (`npx expo run:ios`), Maestro (need
   is **never** stopped, even if `started-postgres` exists (LOOP §10 "left as found" means the owner
   may keep using it; the marker is informational).
 - `status`: each pid alive/dead, listener on 3333 yes/no, container running yes/no, hooks on/off
-  (probe `curl -s -o /dev/null -w '%{http_code}' -X POST localhost:3333/__test/reset` → `204` means on;
+  (non-destructive probe `curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type:
+  application/json' -d '{}' localhost:3333/__test/seed-user` → `400` means on, `404` means off;
   print the code only, do not call it in `status` if the api is down).
 - `logs`: `tail -n 50 .dev-stack/api.log .dev-stack/stripe.log`.
 
 - [ ] **Step 1: Write the script** with the interface above; `chmod +x`. Append `.dev-stack/` to
   `.gitignore`.
 - [ ] **Step 2: Verify `up`.** `scripts/dev-stack.sh up` → exit 0; `curl -s -o /dev/null -w
-  '%{http_code}' localhost:3333/card/fetch` → `401`; `curl -s -o /dev/null -w '%{http_code}' -X POST
-  localhost:3333/__test/reset` → `204`; `.dev-stack/` has `api.pid`, `stripe.pid`.
+  '%{http_code}' localhost:3333/card/fetch` → `401`; `curl -s -o /dev/null -w '%{http_code}' -X POST -H
+  'Content-Type: application/json' -d '{}' localhost:3333/__test/seed-user` → `400` (hooks on; `404` =
+  off); `.dev-stack/` has `api.pid`, `stripe.pid`.
 - [ ] **Step 3: Verify `status`** → prints api alive, stripe alive, container running, hooks on.
 - [ ] **Step 4: Verify webhook path.** `stripe trigger payment_intent.succeeded` → `.dev-stack/api.log`
   gains a line mentioning `payment_intent.succeeded` (handler logs exist today) within 10 s.
@@ -488,7 +507,8 @@ Testcontainers; bash; Expo SDK 57 dev client (`npx expo run:ios`), Maestro (need
 
 - Both repos on `release-1.0` with one commit per task above.
 - `STATUS.md` has the `## Now` table and the Phase L table all `done`.
-- `dev-stack.sh up` → api 401 probe + `/__test/reset` 204; `down` leaves only the compose container.
+- `dev-stack.sh up` → api 401 probe + `POST /__test/seed-user` with `{}` → 400 (hooks on; 404 = off);
+  `down` leaves only the compose container.
 - `device.sh test A .maestro/flows --include-tags smoke` passes; `docs/release-1.0/visual-baseline/`
   holds 15 PNGs + `INDEX.md`.
 - Not in this phase (added when needed): `scripts/two-device.sh` (end of Phase 3), Maestro flows for

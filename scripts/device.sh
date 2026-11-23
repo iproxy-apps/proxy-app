@@ -49,15 +49,27 @@ pgid_of() { ps -o pgid= -p "$1" 2>/dev/null | tr -d ' ' || true; }
 
 comm_of() { ps -o comm= -p "$1" 2>/dev/null || true; }
 
+lstart_of() { ps -o lstart= -p "$1" 2>/dev/null || true; }
+
 group_alive() { [ -n "${1:-}" ] && kill -0 -- "-$1" 2>/dev/null; }
 
 metro_pid() { cat "$STATE/metro.pid" 2>/dev/null || true; }
 
-# True when the recorded leader is alive AND still the command we started (guards against pid reuse).
+# True when live <pid> has BOTH the recorded command name and start time. comm alone is not
+# enough: Metro (npx) and any other node process all report `node`.
+metro_same() {
+  local comm lstart
+  comm="$(cat "$STATE/metro.comm" 2>/dev/null || true)"
+  lstart="$(cat "$STATE/metro.lstart" 2>/dev/null || true)"
+  [ -n "$comm" ] && [ -n "$lstart" ] &&
+    [ "$(comm_of "$1")" = "$comm" ] && [ "$(lstart_of "$1")" = "$lstart" ]
+}
+
+# True when the recorded leader is alive AND still the process we started (guards against pid reuse).
 metro_ours() {
   local pid
   pid="$(metro_pid)"
-  alive "$pid" && [ "$(comm_of "$pid")" = "$(cat "$STATE/metro.comm" 2>/dev/null || true)" ]
+  alive "$pid" && metro_same "$pid"
 }
 
 listeners() { lsof -nP -iTCP:"$1" -sTCP:LISTEN -t 2>/dev/null || true; }
@@ -85,6 +97,9 @@ cmd_boot() {
 cmd_metro() {
   local pid pgid
   pgid="$(cat "$STATE/metro.pgid" 2>/dev/null || true)"
+  if alive "$(metro_pid)" && ! metro_same "$(metro_pid)"; then
+    echo "warning: pid $(metro_pid) is now '$(comm_of "$(metro_pid)")' started $(lstart_of "$(metro_pid)"), not our metro; skipping" >&2
+  fi
   for pid in $(listeners "$METRO_PORT"); do
     if metro_ours && [ -n "$pgid" ] && [ "$(pgid_of "$pid")" = "$pgid" ]; then
       continue
@@ -102,7 +117,7 @@ cmd_metro() {
   fi
 
   # Only our own files: shots/ and maestro/ survive a Metro restart (only `down` removes .dev-stack/).
-  rm -f "$STATE/metro.pid" "$STATE/metro.pgid" "$STATE/metro.comm" "$STATE/metro.log"
+  rm -f "$STATE/metro.pid" "$STATE/metro.pgid" "$STATE/metro.comm" "$STATE/metro.lstart" "$STATE/metro.log"
   mkdir -p "$STATE"
   # Job control on: the background job becomes its own process group leader (pid == pgid),
   # so `down` can kill the whole npx -> expo -> node tree.
@@ -115,6 +130,7 @@ cmd_metro() {
   echo "$pid" >"$STATE/metro.pgid"
   sleep 1 # let nohup exec into the real command before recording its name
   comm_of "$pid" >"$STATE/metro.comm"
+  lstart_of "$pid" >"$STATE/metro.lstart"
 
   local waited=0
   until metro_ready; do
@@ -215,9 +231,9 @@ cmd_down() {
   pid="$(metro_pid)"
   pgid="$(cat "$STATE/metro.pgid" 2>/dev/null || true)"
   if [ -n "$pgid" ] && [ "$pgid" != "$own" ]; then
-    # Pid-reuse guard: a live leader with a different command is not ours.
-    if alive "$pid" && [ "$(comm_of "$pid")" != "$(cat "$STATE/metro.comm" 2>/dev/null || true)" ]; then
-      echo "warning: pid $pid is now '$(comm_of "$pid")', not our metro; skipping"
+    # Pid-reuse guard: a live leader whose command name or start time differs is not ours.
+    if alive "$pid" && ! metro_same "$pid"; then
+      echo "warning: pid $pid is now '$(comm_of "$pid")' started $(lstart_of "$pid"), not our metro; skipping"
     elif group_alive "$pgid"; then
       kill -- "-$pgid" 2>/dev/null || true
       for i in 1 2 3 4 5; do

@@ -13,6 +13,7 @@ phases" section because they are briefs/checklists, not task tables.
 | step | pick |
 | files touched | — |
 | last gate | app @L-T05 commit: tsc ✔ eslint ✔ · maestro baseline 3/3 COMPLETED (2026-11-23) |
+| last gate (api) | api @96362fe: tsc 1 pre-existing error (test/factories/user.factory.ts:64 → P0-T02) · eslint not installed (→ P0-T09, skip until then) · jest 158/158 · e2e 114/115 (pre-existing red delete-account → P0-T10) (2026-11-23) — known-red baseline: a gate is green when it matches this |
 | waiting on owner | — |
 | next task | `P0-T02` |
 
@@ -25,6 +26,7 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude, MacBook Pro M5 | Phase L closed: final-review fix wave (api `96362fe`: real Stripe customer on seed, optional account id, lstart ownership guard; app: two-commit rule, known-red api gate baseline, plan supersessions, lstart guard in `device.sh`). |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | Owner set targets (1 MVP-functional → 2 visual → 3 stores), settled D28/D30/D31, approved `LOOP.md` (approach B). Phase L plan written. ai-memory consolidated into one project (`default/iproxy-apps-proxy-app`, marker in both repos). No source code changed. |
 | 2026-11-08 | Claude Fable 5.1, hackintosh, overnight | Two-pass audit of both repos (8 + 3 reports in `audit/`), DECISIONS.md, PLAN.md, phase plans 0–5, QA checklist, START-HERE. No source code changed except: graphify section removed from both `CLAUDE.md`, release-workstream pointer added to both `CLAUDE.md`. ai-memory pages written (`_rules/release-1-0-start-here`, `decisions/release-1-0-money-model`, `concepts/release-1-0-audit-verdict`). |
 
@@ -33,8 +35,8 @@ phases" section because they are briefs/checklists, not task tables.
 | ID | Title | Depends on | State | Notes |
 |---|---|---|---|---|
 | L-T01 | Branch `release-1.0` + board plumbing (`## Now` table, task cards, LOOP/DECISIONS/marker commit) | — | done | |
-| L-T02 | `TestHooksModule`: `/__test/reset`, `/__test/seed-user`, `/__test/mark-account-ready` behind `LOOP_TEST_HOOKS=1` + local-DB guard | — | done | api `1267e60` · jest 158/158 · e2e 109/110 · 2 review rounds (SkipThrottle default+auth) |
-| L-T03 | `proxy-api/scripts/dev-stack.sh up/down/status/logs` (compose Postgres, api with hooks, `stripe listen`, pid tracking) | L-T02 | done | api `b84a8ff` · up/status/down + exit-1/exit-2 paths verified live · 1 review round (pgid cleanup, pid-reuse guard, non-destructive status probe, log tails) |
+| L-T02 | `TestHooksModule`: `/__test/reset`, `/__test/seed-user`, `/__test/mark-account-ready` behind `LOOP_TEST_HOOKS=1` + local-DB guard | — | done | api `1267e60` · jest 158/158 · e2e 109/110 · 2 review rounds (SkipThrottle default+auth) · final-review fix wave api `96362fe`: seed-user creates a real Stripe customer, `mark-account-ready` id optional (400 `ACCOUNT_ID_REQUIRED` without one), seed `stripeAccountReady` requires an id · deferred: DATABASE_URL try/finally (fixed in fix wave), TRUNCATE_TABLES is hard-coded — update it when adding tables |
+| L-T03 | `proxy-api/scripts/dev-stack.sh up/down/status/logs` (compose Postgres, api with hooks, `stripe listen`, pid tracking) | L-T02 | done | api `b84a8ff` · up/status/down + exit-1/exit-2 paths verified live · 1 review round (pgid cleanup, pid-reuse guard, non-destructive status probe, log tails) · fix wave api `96362fe`: ownership checks require comm **and** `lstart` (same in `device.sh`) |
 | L-T04 | Java + Maestro install, `.maestro/` scaffold, `proxy-app/scripts/device.sh`, first smoke flow | — | done | app L-T04 commit · maestro welcome-to-sign-in ✔ on A and B · Maestro 2.12.1 · tsc+eslint 0 · splash heading asserted by prefix regex (one a11y element with the accent line) |
 | L-T05 | Visual baseline: 15 screenshots on device A (iOS 26.5) + `visual-baseline/INDEX.md` + baseline flows | L-T02, L-T03, L-T04 | done | app L-T05 commit · 15 PNGs · baseline flows COMPLETED on A |
 
@@ -44,12 +46,12 @@ Tasks: 5
 
 | ID | Title | Depends on | State | Notes |
 |---|---|---|---|---|
-| P0-T01 | Test infra hygiene: factory claim, dotenv override, untrack `.env.test`, TRUNCATE guard | — | todo | |
+| P0-T01 | Test infra hygiene: factory claim, dotenv override, untrack `.env.test`, TRUNCATE guard | — | todo | plan line numbers for test-app.factory.ts shifted ~10 lines after L-T02; re-anchor on the card |
 | P0-T02 | Strict typing: declare `Decimal`/`DocumentType`, `noImplicitAny`, `--skipLibCheck false` gate | P0-T01 | todo | |
 | P0-T03 | Global `PrismaModule`, one client, `PaymentsModule` exports | — | todo | |
 | P0-T04 | `configureApp`: CORS, filter, shutdown hooks, `TRUST_PROXY`, Logger in bootstrap | P0-T03 | todo | |
 | P0-T05 | PT error contract: Zod pipe, Throttler/Unauthorized/413/404 and Prisma mapping in the filter | — | todo | |
-| P0-T06 | Throttler: one default 100/min, 5/min on the four public auth routes, trust-proxy behaviour | P0-T04, P0-T05 | todo | |
+| P0-T06 | Throttler: one default 100/min, 5/min on the four public auth routes, trust-proxy behaviour | P0-T04, P0-T05 | todo | loop needs `/auth/session` relaxed or exempt for the loop, every Maestro flow signs in through the UI; `/stripe/webhook` must skip the `auth` throttler |
 | P0-T07 | `z.uuid()` on every `:id` param and `taskId` body | P0-T05 | todo | |
 | P0-T08 | `GET /health` (public, unthrottled, DB ping) | P0-T03, P0-T05 | todo | |
 | P0-T09 | ESLint 9 flat config for proxy-api, `lint` without `--fix` | — | todo | |
