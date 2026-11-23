@@ -14,14 +14,14 @@ phases" section because they are briefs/checklists, not task tables.
 | files touched | — ; api Phase 0 complete at `44e09cf` |
 | last gate | app @ec22198 (Phase 0 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · `expo install --check` ✔ · maestro on rebuilt app: A 4/4 flows (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.011% (forgot-password caret) |
 | last gate (api) | api @e0f01f6 (Phase 0 close, orchestrator-run 2026-11-23; jest also green with `.env` absent): type-check (strict) 0 · eslint 0/0 on 196 files · jest 187/187 (44 suites) · e2e 26/26 suites, 1 skipped (parked delete-account → Phase 2 D13), 131 passed — **no known reds**: a gate is green only when every step exits 0 |
-| waiting on owner | — (decision round closed 2026-11-23; D23/D26 deferred by the owner; Google Places key (D16) needed before P3 city task; `git push` of `release-1.0` for CI) |
+| waiting on owner | — (decision round closed 2026-11-23; D23/D26 deferred by the owner; Google Places key (D16) needed before the P3 address task) |
 | next task | `P1-T02` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity and D26 developer account type
   (both deferred by the owner to "when the version is nearly final"); Google Cloud Places API key for D16
   (needed by the Phase 3 address task, goes in the app `.env` only).
 - **Owner decision round closed (2026-11-23):** every `DEFAULT (confirm)` row is now SETTLED in `DECISIONS.md`; D1 (80/20, min R$ 20), D3 (charge at start, automatic capture, transfer at validate), D9 (30 m access + 60 d rotating refresh token), D12 (no documents stored at all), D14 (edit profile name/phone IN 1.0), D16 (Google Places autocomplete + served-city whitelist) changed; D23/D26 deferred by the owner until the app is nearly final; D24 Cloudflare Pages or Vercel; D25 Resend preferred. Plans for phases 1–3 carry an `## Amendments (2026-11-23 …)` section with the rewritten tasks and rulings.
-- **Phase state:** L done · P0 done (CI runs awaiting push) · P1 todo · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
+- **Phase state:** L done · P0 done (CI green on GitHub) · P1 todo · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)
 
@@ -29,6 +29,7 @@ phases" section because they are briefs/checklists, not task tables.
 |---|---|---|
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | Owner's manual check of Phase 0 run by Claude instead (D28): `DEV_STACK_TEST_HOOKS=0 dev-stack.sh up` → `/health` 200, 6th `/auth/session` 429 pt-BR. Owner asked Claude to run such checks itself from now on. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | **Phase 0 closed.** Boundary regression green on rebuilt A/B, visual freeze held, final review fix wave (api `e0f01f6`, app `ec22198`). Handoff not written (ai-memory offline). Next: P1-T01. |
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | Owner allowed pushes (D30). `release-1.0` pushed in both repos; CI triggers widened to `release-1.0` (Ruling: branch trigger instead of a PR to `main`, because the loop must not touch `main`); both CI runs green. Decision round closed, plans being amended. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T16 done (app CI, awaiting push). All 16 Phase 0 tasks committed; boundary regression starts. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T15 done (fail-fast env module). Simulator A rebuild started after P0-T13 deps (ios/ regenerated: stale Podfile.lock). P0-T16 card written. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T14 done (app jest runner; 4 plan defects ruled). P0-T15 card written. |
@@ -76,11 +77,11 @@ Tasks: 5
 | P0-T09 | ESLint 9 flat config for proxy-api, `lint` without `--fix` | — | done | api `0d6f769` · eslint 9.39.5 + typescript-eslint 8.73 · first run: 1 error (unused type import), fixed by hand, 0 rules downgraded · final 0/0 on 196 files · jest 187/187 · review clean (1 Minor accepted: caret resolved to ^8.73.0) |
 | P0-T10 | Park the red `delete-account` e2e case with a Phase 2 pointer | — | done | api `966d0a7` · `it.skip` + Phase 2 pointer (BE-17 / D13) · e2e 26/26 suites, 1 skipped, 131 passed · review clean |
 | P0-T11 | Dockerfile, `.dockerignore`, `.nvmrc`, `engines` for proxy-api | P0-T08 | done | api `84d1f34` · `docker build` ok (node:22-alpine) · image loads `dist/src/configure-app.js` + `health.controller.js` without env · prisma 7.3.0 · migrations + prisma.config.ts present · image removed · **ruling:** plan's two run checks were wrong (`require(app.module)` validates env at import → exit 1; `prisma --version | head -1` is a banner), replaced as noted in the plan · review clean (2 Minor by design: devDeps in runtime image, no scripts/ copy) |
-| P0-T12 | GitHub Actions workflow for proxy-api | P0-T01…T11 | done (awaiting push) | api `44e09cf` · `.github/workflows/ci.yml` identical to the plan YAML · local CI sequence exit 0 (tsc 0, eslint 0, jest 187/187, e2e 26/26 + 1 skipped) · workflow run pending the owner's push |
+| P0-T12 | GitHub Actions workflow for proxy-api | P0-T01…T11 | done | api `44e09cf` · GitHub Actions run 45249535902 **success** (2026-11-23, after `ci(api): run on pushes to release-1.0`) · `.github/workflows/ci.yml` identical to the plan YAML · local CI sequence exit 0 (tsc 0, eslint 0, jest 187/187, e2e 26/26 + 1 skipped) · workflow run pending the owner's push |
 | P0-T13 | App dependency hygiene: drop `newArchEnabled`, `expo install --fix`, remove datetimepicker | — | done | this commit · `expo install --check` up to date · 8 expo pkgs bumped (expo ~57.0.33, router ~57.0.32…) · datetimepicker gone · tsc 0 · eslint 0 · review clean (Minor: transitive majors glob/xcode moved) · **simulator build is stale: rebuild A and B before the next Maestro run** |
 | P0-T14 | App test runner: jest-expo + RNTL + `Button` render test + `npm test` | P0-T13 | done | this commit · `npm test` 3/3 · tsc 0 · eslint 0 · **4 rulings** (plan defects): +`@react-native/jest-preset@0.86.3` and +`test-renderer@^1.3.1` (peers not auto-installed under legacy-peer-deps), RNTL 14 async API (`await render/fireEvent`), reanimated `setUpTests()` throws → mock fallback, TS 6 needs `"types": ["jest"]` in tsconfig · review clean (Minor: version spec forms) |
 | P0-T15 | `src/common/env.ts` fail-fast + consumers | P0-T14 | done | this commit · read-env.test 7/7 · `npm test` 10/10 · tsc 0 · eslint 0 · 3 consumers migrated · review clean (4 Minor accepted: single-failure message lists only the failing var; extra CLAUDE.md sentence) |
-| P0-T16 | App `.nvmrc`, `engines`, GitHub Actions workflow | P0-T13, P0-T14, P0-T15 | done (awaiting push) | this commit · ci.yml identical to the plan YAML · local CI sequence exit 0 (npm ci, tsc 0, eslint 0, jest 10/10) · workflow run pending the owner's push |
+| P0-T16 | App `.nvmrc`, `engines`, GitHub Actions workflow | P0-T13, P0-T14, P0-T15 | done | `c7a9eef` · GitHub Actions run 45249543025 **success** (2026-11-23, after `ci(app): run on pushes to release-1.0`) · ci.yml identical to the plan YAML · local CI sequence exit 0 (npm ci, tsc 0, eslint 0, jest 10/10) · workflow run pending the owner's push |
 
 Tasks: 16
 
