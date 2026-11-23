@@ -9,24 +9,25 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P2-T04` |
-| step | build (card `cards/P2-T04.md`, implementer dispatched) |
+| task | `P2-T05` |
+| step | build (card `cards/P2-T05.md`, implementer dispatched) |
 | files touched | — ; api Phase 0 complete at `44e09cf` |
 | last gate | app @b64fc44 (Phase 1 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · maestro A 4/4 (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.000 % on 15 screens |
-| last gate (api) | api @f10654f (P2-T03b, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 294/294 (48 suites) · e2e 34/34 suites, 247 passed, 1 skipped · drift none · CI on `release-1.0` green |
+| last gate (api) | api @e80ac09 (P2-T04, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 302/302 (51 suites) · e2e 36/36 suites, 266 passed, 1 skipped · drift none · CI on `release-1.0` green |
 | waiting on owner | — (decision round closed 2026-11-23; D23/D26 deferred by the owner; Google Places key (D16) needed before the P3 address task) |
-| next task | `P2-T05` |
+| next task | `P2-T06` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity and D26 developer account type
   (both deferred by the owner to "when the version is nearly final"); Google Cloud Places API key for D16
   (needed by the Phase 3 address task, goes in the app `.env` only).
 - **Owner decision round closed (2026-11-23):** every `DEFAULT (confirm)` row is now SETTLED in `DECISIONS.md`; D1 (80/20, min R$ 20), D3 (charge at start, automatic capture, transfer at validate), D9 (30 m access + 60 d rotating refresh token), D12 (no documents stored at all), D14 (edit profile name/phone IN 1.0), D16 (Google Places autocomplete + served-city whitelist) changed; D23/D26 deferred by the owner until the app is nearly final; D24 Cloudflare Pages or Vercel; D25 Resend preferred. Plans for phases 1–3 carry an `## Amendments (2026-11-23 …)` section with the rewritten tasks and rulings.
-- **Phase state:** L done · P0 done (CI green on GitHub) · P1 done (2026-11-23) · P2 in progress (T01–T03b done) · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
+- **Phase state:** L done · P0 done (CI green on GitHub) · P1 done (2026-11-23) · P2 in progress (T01–T04 done) · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P2-T04 done (api `e80ac09`) after one fix round (advisory lock closes the revoke-vs-rotate race). P2-T05 dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P2-T03b done (api `f10654f`): identity-document columns dropped (D12). P2-T04 (refresh tokens, D9) dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P2-T03 done (api `d9973e7`). e2e flake watch: `refresh-session › rejects unauthenticated requests` answered 404 instead of 401 once in a sequential full run (`maxWorkers: 1`, `--runInBand`), never alone — same family as the Phase 0/1 one-off 404/401 flakes; investigate at the Phase 2 boundary (run the suite 3× and collect failures). P2-T03b dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P2-T02 done (api `c3af4c6`) after one small fix round. P2-T03 dispatched. |
