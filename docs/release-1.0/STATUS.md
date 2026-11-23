@@ -9,24 +9,25 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P1-T02` |
+| task | `P1-T03` |
 | step | pick |
 | files touched | — ; api Phase 0 complete at `44e09cf` |
 | last gate | app @ec22198 (Phase 0 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · `expo install --check` ✔ · maestro on rebuilt app: A 4/4 flows (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.011% (forgot-password caret) |
-| last gate (api) | api @67b25a4 (P1-T01, 2026-11-23): type-check 0 · eslint 0 · jest 198/198 (45 suites, money.ts 100 % cov) · e2e not re-run (pure module, nothing reaches HTTP); last full e2e 26/26 @e0f01f6 · CI on `release-1.0` green @d114035 |
+| last gate (api) | api @886dc89 (P1-T02, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 198/198 (45 suites) · e2e 27/27 suites, 135 passed, 1 skipped · dev DB `migrate status` up to date · CI on `release-1.0` green @d114035 |
 | waiting on owner | — (decision round closed 2026-11-23; D23/D26 deferred by the owner; Google Places key (D16) needed before the P3 address task) |
-| next task | `P1-T03` |
+| next task | `P1-T04` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity and D26 developer account type
   (both deferred by the owner to "when the version is nearly final"); Google Cloud Places API key for D16
   (needed by the Phase 3 address task, goes in the app `.env` only).
 - **Owner decision round closed (2026-11-23):** every `DEFAULT (confirm)` row is now SETTLED in `DECISIONS.md`; D1 (80/20, min R$ 20), D3 (charge at start, automatic capture, transfer at validate), D9 (30 m access + 60 d rotating refresh token), D12 (no documents stored at all), D14 (edit profile name/phone IN 1.0), D16 (Google Places autocomplete + served-city whitelist) changed; D23/D26 deferred by the owner until the app is nearly final; D24 Cloudflare Pages or Vercel; D25 Resend preferred. Plans for phases 1–3 carry an `## Amendments (2026-11-23 …)` section with the rewritten tasks and rulings.
-- **Phase state:** L done · P0 done (CI green on GitHub) · P1 in progress (T01 done) · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
+- **Phase state:** L done · P0 done (CI green on GitHub) · P1 in progress (T01–T02 done) · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T02 done (api `886dc89`): migration + partial unique index, review clean, gate green. e2e flake watch: `test/auth/create-account` failed once (401 vs 400) in the implementer's run, green alone and on rerun (adds to `create-task`/`fetch-card` from Phase 0). |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | Phase 1 plan amended to the new D1/D3 (claim-first ruling folded back into D3/PLAN.md). P1-T01 done (api `67b25a4`), review clean, gate green. Phase 2/3 plan amendment still running. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | Owner's manual check of Phase 0 run by Claude instead (D28): `DEV_STACK_TEST_HOOKS=0 dev-stack.sh up` → `/health` 200, 6th `/auth/session` 429 pt-BR. Owner asked Claude to run such checks itself from now on. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | **Phase 0 closed.** Boundary regression green on rebuilt A/B, visual freeze held, final review fix wave (api `e0f01f6`, app `ec22198`). Handoff not written (ai-memory offline). Next: P1-T01. |
