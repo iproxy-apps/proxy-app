@@ -9,13 +9,13 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P0-T01` |
+| task | `P0-T02` |
 | step | pick |
 | files touched | — |
 | last gate | app @L-T05 commit: tsc ✔ eslint ✔ · maestro baseline 3/3 COMPLETED (2026-11-23) |
-| last gate (api) | api @96362fe: tsc 1 pre-existing error (test/factories/user.factory.ts:64 → P0-T02) · eslint not installed (→ P0-T09, skip until then) · jest 158/158 · e2e 114/115 (pre-existing red delete-account → P0-T10) (2026-11-23) — known-red baseline: a gate is green when it matches this |
+| last gate (api) | api @d97b18b (P0-T01, orchestrator-run 2026-11-23): tsc 0 · eslint not installed (→ P0-T09, skip until then) · jest 158/158 · e2e 117/118 (pre-existing red delete-account → P0-T10) — known-red baseline: a gate is green when it matches this |
 | waiting on owner | — |
-| next task | `P0-T02` |
+| next task | `P0-T03` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity, D24 static-site origin,
   D26 developer account type (Play closed test clock); plus
@@ -26,6 +26,7 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | Owner re-ran the baseline (3/3 passed) after enabling LuLu Allow Simulator Apps; P0-T01 done (api `d97b18b`, implementer + blind reviewer, 1 fix round). |
 | 2026-11-23 | Claude, MacBook Pro M5 | Phase L closed: final-review fix wave (api `96362fe`: real Stripe customer on seed, optional account id, lstart ownership guard; app: two-commit rule, known-red api gate baseline, plan supersessions, lstart guard in `device.sh`). |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | Owner set targets (1 MVP-functional → 2 visual → 3 stores), settled D28/D30/D31, approved `LOOP.md` (approach B). Phase L plan written. ai-memory consolidated into one project (`default/iproxy-apps-proxy-app`, marker in both repos). No source code changed. |
 | 2026-11-08 | Claude Fable 5.1, hackintosh, overnight | Two-pass audit of both repos (8 + 3 reports in `audit/`), DECISIONS.md, PLAN.md, phase plans 0–5, QA checklist, START-HERE. No source code changed except: graphify section removed from both `CLAUDE.md`, release-workstream pointer added to both `CLAUDE.md`. ai-memory pages written (`_rules/release-1-0-start-here`, `decisions/release-1-0-money-model`, `concepts/release-1-0-audit-verdict`). |
@@ -46,7 +47,7 @@ Tasks: 5
 
 | ID | Title | Depends on | State | Notes |
 |---|---|---|---|---|
-| P0-T01 | Test infra hygiene: factory claim, dotenv override, untrack `.env.test`, TRUNCATE guard | — | todo | plan line numbers for test-app.factory.ts shifted ~10 lines after L-T02; re-anchor on the card |
+| P0-T01 | Test infra hygiene: factory claim, dotenv override, untrack `.env.test`, TRUNCATE guard | — | done | api `d97b18b` · tsc 0 · jest 158/158 · e2e 117/118 (24 suites; +3 guard cases; red = delete-account) · `.env.test` untracked, still on disk · review: 1 Minor fixed (quotes on `got "<unset>"`) |
 | P0-T02 | Strict typing: declare `Decimal`/`DocumentType`, `noImplicitAny`, `--skipLibCheck false` gate | P0-T01 | todo | |
 | P0-T03 | Global `PrismaModule`, one client, `PaymentsModule` exports | — | todo | |
 | P0-T04 | `configureApp`: CORS, filter, shutdown hooks, `TRUST_PROXY`, Logger in bootstrap | P0-T03 | todo | |
@@ -203,5 +204,5 @@ Tasks: 18
 
 - Hackintosh (2026-11-08): Node 26.13, Docker Desktop installed (start it before e2e), Stripe CLI not
   installed, no `eas`/`wrangler`/`aws` CLIs, Lovable prototype only on the MacBook.
-- Backend: run `npx prisma generate` before `tsc`/`jest`; e2e rewrites `test/.env.test` until P0-T01.
+- Backend: run `npx prisma generate` before `tsc`/`jest`; e2e writes the untracked `test/.env.test` (P0-T01).
 - Backend has no ESLint installed despite the `lint` script (P0 adds it).
