@@ -219,6 +219,15 @@ Mensagens em PT que a API pode retornar. Usar direto no toast.
 | `PASSWORD_RESET_SEND_FAILED`              | 500    | Falha ao enviar o código de recuperação. Tente novamente.                                |
 | `FILE_FORMAT_NOT_SUPPORTED`               | 400    | Formato de arquivo não suportado. Envie uma imagem JPG, PNG ou WEBP.                     |
 | `FILE_UPLOAD_FAILED`                      | 500    | Falha ao fazer upload do arquivo.                                                        |
+| `VALIDATION_FAILED`                       | 400    | Dados inválidos. Verifique os campos e tente novamente.                                  |
+| `UNAUTHORIZED`                            | 401    | Sessão inválida ou expirada. Entre novamente.                                            |
+| `TOO_MANY_REQUESTS`                       | 429    | Muitas tentativas. Aguarde um minuto e tente novamente.                                  |
+| `ROUTE_NOT_FOUND`                         | 404    | Rota não encontrada.                                                                     |
+| `FILE_TOO_LARGE`                          | 413    | Arquivo muito grande. O limite é 10 MB.                                                  |
+| `RESOURCE_ALREADY_EXISTS`                 | 409    | Já existe um registro com esses dados.                                                   |
+| `RESOURCE_NOT_FOUND`                      | 404    | Registro não encontrado.                                                                 |
+| `INVALID_IDENTIFIER`                      | 400    | Identificador inválido.                                                                  |
+| `HEALTH_DATABASE_UNAVAILABLE`             | 503    | Banco de dados indisponível.                                                             |
 
 ### 3.4 Endpoints (referência rápida)
 
