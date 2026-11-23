@@ -9,24 +9,25 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P2-T01` |
-| step | pick |
+| task | `P2-T02` |
+| step | build (card `cards/P2-T02.md`, implementer dispatched) |
 | files touched | — ; api Phase 0 complete at `44e09cf` |
 | last gate | app @b64fc44 (Phase 1 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · maestro A 4/4 (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.000 % on 15 screens |
-| last gate (api) | api @03e798a (Phase 1 close, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 292/292 (48 suites) · e2e 32/32 suites, 229 passed, 1 skipped · webhooks exercised via Stripe CLI · CI on `release-1.0` green |
+| last gate (api) | api @c5dc043 (P2-T01, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 292/292 (48 suites) · e2e 32/32 suites, 236 passed, 1 skipped · CI on `release-1.0` green |
 | waiting on owner | — (decision round closed 2026-11-23; D23/D26 deferred by the owner; Google Places key (D16) needed before the P3 address task) |
-| next task | `P2-T02` |
+| next task | `P2-T03` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity and D26 developer account type
   (both deferred by the owner to "when the version is nearly final"); Google Cloud Places API key for D16
   (needed by the Phase 3 address task, goes in the app `.env` only).
 - **Owner decision round closed (2026-11-23):** every `DEFAULT (confirm)` row is now SETTLED in `DECISIONS.md`; D1 (80/20, min R$ 20), D3 (charge at start, automatic capture, transfer at validate), D9 (30 m access + 60 d rotating refresh token), D12 (no documents stored at all), D14 (edit profile name/phone IN 1.0), D16 (Google Places autocomplete + served-city whitelist) changed; D23/D26 deferred by the owner until the app is nearly final; D24 Cloudflare Pages or Vercel; D25 Resend preferred. Plans for phases 1–3 carry an `## Amendments (2026-11-23 …)` section with the rewritten tasks and rulings.
-- **Phase state:** L done · P0 done (CI green on GitHub) · P1 done (2026-11-23) · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
+- **Phase state:** L done · P0 done (CI green on GitHub) · P1 done (2026-11-23) · P2 in progress (T01 done) · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | Phase 2 started. P2-T01 done (api `c5dc043`); review clean, gate green. P2-T02 dispatched (ruling: keep `searchCustomer` for the loop seed hook). |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | **Phase 1 closed.** Final review + fix wave (api `03e798a`), boundary regression green (Maestro A 4/4, B 1/1, visual-diff 0.000 %), webhooks exercised live. Parked items recorded. Next: `P2-T01` (Phase 2 auth & API hardening). Owner inputs still open: Google Places key before P3-T14b; D23/D26 when near final. ai-memory handoff NOT written (Mac Pro server unreachable again); this STATUS is the handoff. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T17 done (api `fe30eff`) after one fix round. All 18 Phase 1 tasks committed. Boundary started: webhook exercised via Stripe CLI (events dispatched, deduped, "matches no task" for the CLI fixture as expected), Maestro regression + whole-branch review running. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T18 done (app, this commit): wire types for the Phase 1 contract; review clean, app gate green. P1-T17 (api CLAUDE.md) running in parallel (different repo). |
