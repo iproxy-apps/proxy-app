@@ -9,24 +9,25 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P1-T14` |
-| step | build (card `cards/P1-T14.md`, implementer dispatched) |
+| task | `P1-T15` |
+| step | build (card `cards/P1-T15.md`, implementer dispatched) |
 | files touched | — ; api Phase 0 complete at `44e09cf` |
 | last gate | app @ec22198 (Phase 0 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · `expo install --check` ✔ · maestro on rebuilt app: A 4/4 flows (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.011% (forgot-password caret) |
-| last gate (api) | api @4987abc (P1-T13, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 260/260 (47 suites) · e2e 31/31 suites, 210 passed, 1 skipped · CI on `release-1.0` green @d114035 |
+| last gate (api) | api @a607d7b (P1-T14, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 278/278 (47 suites) · e2e 31/31 suites, 220 passed, 1 skipped · CI on `release-1.0` green @d114035 |
 | waiting on owner | — (decision round closed 2026-11-23; D23/D26 deferred by the owner; Google Places key (D16) needed before the P3 address task) |
-| next task | `P1-T15` |
+| next task | `P1-T16` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity and D26 developer account type
   (both deferred by the owner to "when the version is nearly final"); Google Cloud Places API key for D16
   (needed by the Phase 3 address task, goes in the app `.env` only).
 - **Owner decision round closed (2026-11-23):** every `DEFAULT (confirm)` row is now SETTLED in `DECISIONS.md`; D1 (80/20, min R$ 20), D3 (charge at start, automatic capture, transfer at validate), D9 (30 m access + 60 d rotating refresh token), D12 (no documents stored at all), D14 (edit profile name/phone IN 1.0), D16 (Google Places autocomplete + served-city whitelist) changed; D23/D26 deferred by the owner until the app is nearly final; D24 Cloudflare Pages or Vercel; D25 Resend preferred. Plans for phases 1–3 carry an `## Amendments (2026-11-23 …)` section with the rewritten tasks and rulings.
-- **Phase state:** L done · P0 done (CI green on GitHub) · P1 in progress (T01–T13 done) · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
+- **Phase state:** L done · P0 done (CI green on GitHub) · P1 in progress (T01–T14 done) · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T14 done (api `a607d7b`) after one fix round (guarded downgrade, remove guard, refund status, cancel re-read after CAS). P1-T15 dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T13 done (api `4987abc`) after one fix round (no revert after an accepted refund — Critical caught by the opus review). Every status write now goes through `transition`/`claimTask`/`releaseClaim`. P1-T14 dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T12 done (api `fdbc658`) after one fix round (logging/guarded revert; 409 on wrong status). e2e flake watch: `validate-task` failed once in the implementer's isolated run, not reproduced in 21 further runs. P1-T13 dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T11 done (api `446d350`): proof via storage + CAS finish + proof streaming; review clean, gate green. P1-T12 dispatched. |
@@ -104,6 +105,7 @@ Tasks: 16
 - **P1-T08 review follow-ups (2026-11-23):** (a) P1-T14 must write the `succeeded` row from the webhook metadata (`taskId`/`proxyId`/`claimedAt`) so a start whose response was lost still gets its row; (b) a claim left `in_progress` with no payment row (unknown charge outcome) has no sweeper — cancel by the client covers it for now; P1-T16 or Phase 2 should add a reconciler that checks Stripe for a PaymentIntent with that `metadata.taskId` before releasing; (c) if the client swaps the card while an attempt is unknown, the retry hits `StripeIdempotencyError` for up to 24 h — same reconciler.
 - **P1-T10 (2026-11-23):** the plan said `sharp` needs a glibc image; `sharp` ≥ 0.33 ships musl prebuilts, so the `node:22-alpine` Dockerfile is expected to work — verify `docker build` + a `normalizeProofImage` smoke run inside the image at Phase 5 before deploying.
 - **P1-T12 review follow-ups (2026-11-23):** the transfer idempotency key `task:<id>:transfer` protects a retry only inside Stripe's 24 h window; after that a re-validate (e.g. by the auto-release job) could create a second transfer from the same charge — P1-T16 must treat `TASK_STATUS_CONFLICT` from a race as harmless, and Phase 2/5 should add a "find existing transfer by `transfer_group`" check before retrying a transfer on a task that already left `verification_required`.
+- **P1-T14 review follow-ups (2026-11-23):** (a) webhook dedupe marks an event processed before the handler finishes, so a Stripe retry arriving while the first attempt is still running gets 200 and the event is lost if that attempt then fails — Phase 2/5: add `processedAt` to `stripe_events` and answer non-2xx while a fresh claim has no `processedAt`; (b) the shared refund key `task:<id>:refund` assumes one charged PaymentIntent per task — true today (claim-first start), revisit together with the 24 h idempotency note if a reconciler ever re-charges; (c) `charge.refunded` marks `refunded` from any status, incl. `disputed` — P1-T15 may guard with `status in (succeeded, pending)`.
 
 ## Phase 1 — Money core (api) — `plans/phase-1-money-core.md`
 
