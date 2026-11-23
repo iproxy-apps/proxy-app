@@ -7,7 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.proxyapp"
@@ -32,7 +31,6 @@
           "merchantIdentifier": "merchant.com.anonymous.proxyapp"
         }
       ],
-      "@react-native-community/datetimepicker",
       [
         "expo-location",
         {
