@@ -9,13 +9,13 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P0-T09` |
+| task | `P0-T10` |
 | step | build |
-| files touched | card `cards/P0-T09.md` written; api tree clean at `eaf32bb` |
+| files touched | card `cards/P0-T10.md` written; api tree clean at `0d6f769` |
 | last gate | app @L-T05 commit: tsc ✔ eslint ✔ · maestro baseline 3/3 COMPLETED (2026-11-23) |
-| last gate (api) | api @eaf32bb (P0-T08, orchestrator-run 2026-11-23): type-check (strict) 0 · eslint not installed (→ P0-T09, skip until then) · jest 187/187 (44 suites) · e2e 131/132 (pre-existing red delete-account → P0-T10) — known-red baseline: a gate is green when it matches this |
+| last gate (api) | api @0d6f769 (P0-T09, orchestrator-run 2026-11-23): type-check (strict) 0 · eslint 0 errors / 0 warnings on 196 files · jest 187/187 (44 suites) · e2e 131/132 (pre-existing red delete-account → P0-T10) — known-red baseline: a gate is green when it matches this |
 | waiting on owner | — |
-| next task | `P0-T10` |
+| next task | `P0-T11` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity, D24 static-site origin,
   D26 developer account type (Play closed test clock); plus
@@ -26,6 +26,7 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T09 done (api `0d6f769`): ESLint 9 flat config, lint gate now part of the api gate. P0-T10 card written. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T08 done (api `eaf32bb`): GET /health. P0-T09 card written. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T07 done (api `d00d14f`): z.uuid() on 7 controllers. P0-T08 card written. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T06 done (api `e4c7499`): single default throttler, 5/min on 4 auth routes, loop exemption. P0-T07 card written. |
@@ -62,7 +63,7 @@ Tasks: 5
 | P0-T06 | Throttler: one default 100/min, 5/min on the four public auth routes, trust-proxy behaviour | P0-T04, P0-T05 | done | api `e4c7499` · throttle.e2e 8/8 · jest 185/185 · e2e 126/127 (red = delete-account) · **ruling:** `skipIf` also true when `LOOP_TEST_HOOKS=1` (device loop signs in many times from one IP); Phase L hook controllers back to bare `@SkipThrottle()`; SPEC §3.4 + CLAUDE.md updated · review clean (1 cosmetic Minor) |
 | P0-T07 | `z.uuid()` on every `:id` param and `taskId` body | P0-T05 | done | api `d00d14f` · 4 new e2e cases (500→400) · jest 185/185 · e2e 130/131 (red = delete-account) · review: 1 Minor (blank lines) fixed · note: `z.uuid()` is RFC-strict (v1-8); Prisma v4 ids pass |
 | P0-T08 | `GET /health` (public, unthrottled, DB ping) | P0-T03, P0-T05 | done | api `eaf32bb` · health unit 2/2 · health e2e 1/1 · jest 187/187 · e2e 131/132 (red = delete-account) · CLAUDE.md route map +Health, auth throttle note fixed · review clean |
-| P0-T09 | ESLint 9 flat config for proxy-api, `lint` without `--fix` | — | todo | |
+| P0-T09 | ESLint 9 flat config for proxy-api, `lint` without `--fix` | — | done | api `0d6f769` · eslint 9.39.5 + typescript-eslint 8.73 · first run: 1 error (unused type import), fixed by hand, 0 rules downgraded · final 0/0 on 196 files · jest 187/187 · review clean (1 Minor accepted: caret resolved to ^8.73.0) |
 | P0-T10 | Park the red `delete-account` e2e case with a Phase 2 pointer | — | todo | |
 | P0-T11 | Dockerfile, `.dockerignore`, `.nvmrc`, `engines` for proxy-api | P0-T08 | todo | |
 | P0-T12 | GitHub Actions workflow for proxy-api | P0-T01…T11 | todo | |
