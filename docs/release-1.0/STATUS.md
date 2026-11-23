@@ -7,18 +7,38 @@ phases" section because they are briefs/checklists, not task tables.
 
 ## Now
 
-- **Next task to pick up:** `P0-T01` (phase 0, backend test factory + env hygiene). See
-  `plans/phase-0-foundations.md`.
+| Field | Value |
+|---|---|
+| task | `L-T02` |
+| step | pick |
+| files touched | — |
+| last gate | — |
+| waiting on owner | — |
+| next task | `L-T03` |
+
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity, D24 static-site origin,
-  D26 developer account type (Play closed test clock), D28 autonomous device testing; plus
+  D26 developer account type (Play closed test clock); plus
   confirmation of every `DEFAULT (confirm)` row (D1, D3, D5–D9, D12, D14, D16, D18, D25).
-- **Phase state:** P0 todo · P1 todo · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
+- **Phase state:** L in_progress · P0 todo · P1 todo · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | Owner set targets (1 MVP-functional → 2 visual → 3 stores), settled D28/D30/D31, approved `LOOP.md` (approach B). Phase L plan written. ai-memory consolidated into one project (`default/iproxy-apps-proxy-app`, marker in both repos). No source code changed. |
 | 2026-11-08 | Claude Fable 5.1, hackintosh, overnight | Two-pass audit of both repos (8 + 3 reports in `audit/`), DECISIONS.md, PLAN.md, phase plans 0–5, QA checklist, START-HERE. No source code changed except: graphify section removed from both `CLAUDE.md`, release-workstream pointer added to both `CLAUDE.md`. ai-memory pages written (`_rules/release-1-0-start-here`, `decisions/release-1-0-money-model`, `concepts/release-1-0-audit-verdict`). |
+
+## Phase L — Loop infrastructure (both) — `plans/phase-L-loop-infra.md`
+
+| ID | Title | Depends on | State | Notes |
+|---|---|---|---|---|
+| L-T01 | Branch `release-1.0` + board plumbing (`## Now` table, task cards, LOOP/DECISIONS/marker commit) | — | done | |
+| L-T02 | `TestHooksModule`: `/__test/reset`, `/__test/seed-user`, `/__test/mark-account-ready` behind `LOOP_TEST_HOOKS=1` + local-DB guard | — | todo | |
+| L-T03 | `proxy-api/scripts/dev-stack.sh up/down/status/logs` (compose Postgres, api with hooks, `stripe listen`, pid tracking) | L-T02 | todo | |
+| L-T04 | Java + Maestro install, `.maestro/` scaffold, `proxy-app/scripts/device.sh`, first smoke flow | — | todo | |
+| L-T05 | Visual baseline: 15 screenshots on device A (iOS 26.5) + `visual-baseline/INDEX.md` + baseline flows | L-T02, L-T03, L-T04 | todo | |
+
+Tasks: 5
 
 ## Phase 0 — Foundations: tests, CI, hygiene (both) — `plans/phase-0-foundations.md`
 
@@ -163,6 +183,10 @@ Tasks: 18
 | 6 | Store submission (§6.4) | todo | |
 
 ## Known machine/environment facts
+
+- MacBook Pro M5 (2026-11-23, the loop machine per D31): Node 24.12, Xcode 27.2 with iPhone 17 Pro /
+  17e / 18 Pro simulators, Docker Desktop running, Stripe CLI installed, Lovable prototype at
+  `~/Downloads/proxy-prototype`. Missing: Java runtime, Maestro, `eas`, `wrangler`, `psql`.
 
 - Hackintosh (2026-11-08): Node 26.13, Docker Desktop installed (start it before e2e), Stripe CLI not
   installed, no `eas`/`wrangler`/`aws` CLIs, Lovable prototype only on the MacBook.

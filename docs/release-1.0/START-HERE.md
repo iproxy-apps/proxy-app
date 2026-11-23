@@ -31,17 +31,15 @@ after running it.
 
 ## Rules that override everything (from the owner's CLAUDE.md)
 
-- Never start the dev server / Expo / app (`npm run dev`, `npm start`, `expo run:*`) unless the owner
-  explicitly lifts the rule for that session (see `DECISIONS.md` D28).
+- The global "never start the dev server" rule is **lifted for the two Proxy repos** (D28, settled
+  2026-11-23): Claude may run Expo/`expo run:ios` on the simulator, the backend, Docker, the Stripe CLI
+  and Maestro. Never start or touch anything in other repositories; check ports before binding; stop
+  only processes Claude started.
 - Never run repo-wide format/fix scripts; prettier only on new files.
-- Leave work as uncommitted changes unless asked to commit; the owner owns git.
+- Commit policy (D30): one commit per finished task on branch `release-1.0`, message `feat|fix|test|chore(<area>): <task id> <title>`, no Claude attribution. Never push, never touch `main`; the owner owns pushes and merges.
 - All user-facing copy in pt-BR; work-comms output in English.
 - When a task is finished, say so and tell the owner exactly which flow to test manually.
 
 ## Session protocol
 
-- Start: read the files above; pick the first `todo` task whose dependencies are `done`; set it
-  `in_progress` in `STATUS.md`.
-- Work: follow the task's steps (test first, then code, then verify). Cite task IDs in commits.
-- End: update `STATUS.md` (done / half-done with file list / next), and if ai-memory is available
-  write a handoff (`ai-memory-handoff` skill) pointing to this folder and the next task.
+- Follow `LOOP.md` §11 (resume from `STATUS.md` `## Now`, run §5.2 iterations, §5.3 at phase boundaries).
