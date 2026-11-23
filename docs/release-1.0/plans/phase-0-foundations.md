@@ -959,6 +959,13 @@ added), SPEC.md §3.4 (throttle table), proxy-api `CLAUDE.md` (rate-limiting lin
 - [ ] **Step 5: Verify the repo gate** — `npm run type-check` (unchanged); `docker image rm proxy-api:phase0`.
 - [ ] **Step 6: Mark done in ../STATUS.md; commit message** `chore(deploy): P0-T11 Dockerfile, .dockerignore, .nvmrc, engines`
 
+> **Superseded by implementation (2026-11-23):** the two step-4 run checks do not work as written.
+> `require('/app/dist/src/app.module.js')` prints `ok` but exits 1 because `ConfigModule.forRoot`
+> validates the env at import time (no env in the throwaway container); `npx prisma --version | head -1`
+> prints the "Loaded Prisma config" banner, not the version. Used instead:
+> `node -e "require('/app/dist/src/configure-app.js'); require('/app/dist/src/health/health.controller.js'); console.log('ok')"`
+> → `ok`, and `npx prisma --version | grep '^prisma '` → `prisma : 7.3.0`. Files unchanged.
+
 ---
 
 ### Task P0-T12: GitHub Actions workflow for proxy-api (BE-44 harness, REL-10)
