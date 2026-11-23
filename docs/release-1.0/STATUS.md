@@ -9,24 +9,25 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | `P2-T13` |
-| step | build (card `cards/P2-T13.md`, implementer dispatched) |
+| task | `P2-T14` |
+| step | build (card `cards/P2-T14.md`, implementer dispatched) |
 | files touched | — ; api Phase 0 complete at `44e09cf` |
 | last gate | app @b64fc44 (Phase 1 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · maestro A 4/4 (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.000 % on 15 screens |
-| last gate (api) | api @50e859c (P2-T12, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 344/344 (58 suites) · e2e 37/37 suites, 303 passed (pre-fix-round full run) + fetch-tasks 11/11 after · CI on `release-1.0` green through `313ccae` |
+| last gate (api) | api @9a5b0dc (P2-T13, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 346/346 (59 suites) · e2e 37/37 suites, 308 passed · CI on `release-1.0` green through `3880d5a` |
 | waiting on owner | — (decision round closed 2026-11-23; D23/D26 deferred by the owner; Google Places key (D16) needed before the P3 address task) |
-| next task | `P2-T14` |
+| next task | `P2-T15` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity and D26 developer account type
   (both deferred by the owner to "when the version is nearly final"); Google Cloud Places API key for D16
   (needed by the Phase 3 address task, goes in the app `.env` only).
 - **Owner decision round closed (2026-11-23):** every `DEFAULT (confirm)` row is now SETTLED in `DECISIONS.md`; D1 (80/20, min R$ 20), D3 (charge at start, automatic capture, transfer at validate), D9 (30 m access + 60 d rotating refresh token), D12 (no documents stored at all), D14 (edit profile name/phone IN 1.0), D16 (Google Places autocomplete + served-city whitelist) changed; D23/D26 deferred by the owner until the app is nearly final; D24 Cloudflare Pages or Vercel; D25 Resend preferred. Plans for phases 1–3 carry an `## Amendments (2026-11-23 …)` section with the rewritten tasks and rulings.
-- **Phase state:** L done · P0 done (CI green on GitHub) · P1 done (2026-11-23) · P2 in progress (T01–T12 + T08b done) · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
+- **Phase state:** L done · P0 done (CI green on GitHub) · P1 done (2026-11-23) · P2 in progress (T01–T13 + T08b done) · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P2-T13 done (api `9a5b0dc`). P2-T14 dispatched (must close the raw PaymentRecord exposure on by-id). |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P2-T12 done (api `50e859c`) after one small fix round (page cap). P2-T13 dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P2-T11 done (api `3880d5a`). P2-T12 dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P2-T08b done (api `313ccae`) incl. the forgot-password timing fix carried from the P2-T08 review. P2-T11 dispatched. |
@@ -173,7 +174,7 @@ Tasks: 18
 | P2-T10 | Connect params, PROXY check, single `STRIPE_CONNECT_RETURN_URL`, env hardening | — | done | api `9dece55` · `NODE_ENV` enum required (no default), `STRIPE_CONNECT_RETURN_URL` `z.url()` (single return URL, refresh link = `?refresh=1`), `STRIPE_PUBLIC_KEY`/`DEV_CALLBACK_URL`/`PROD_CALLBACK_URL` removed everywhere (schema, `.env.example`, `CLAUDE.md`, `unit-env.ts`, `global-setup.ts`), Stripe Connect `country: BR`, `default_currency: brl`, `capabilities.transfers`, conditional `phone`; PROXY-only check on merchant account; `scripts/dev-stack.sh` `${VAR:-default}` fallbacks for the two keys · `env.spec.ts` 3 cases, `stripe.service.spec.ts` +2, e2e merchant 3 → 6 · gate: type-check 0 · eslint 0 · jest 324/324 (55 suites) · e2e 37/37, 291 passed · review: spec ✅, approved · parked (pre-existing Minor): `app.module.ts:37-40`, `prisma.service.ts:11,16`, `test-hooks.guard.ts:27-34` still read `process.env` directly (pre-bootstrap reads; route through `EnvService` or document the exception at the Phase 2 boundary) · OWNER: add `STRIPE_CONNECT_RETURN_URL=http://localhost:3000/callback` to proxy-api `.env` (dev-stack falls back; plain `npm run start:dev` will not) |
 | P2-T11 | `SERVED_CITIES`, `Tasks.city`/`state` + backfill, Places-shaped create body, `CITY_NOT_SERVED` | — | done | api `3880d5a` · migration `20261124020000_add_task_city_state` (nullable add → regex backfill from `<street>, <city> - <UF>, <zip>` → fallback `left(address,120)`/`state=''` → NOT NULL → `tasks_city_status_createdAt_idx`; regex probed on 4 sample addresses in the gate: SP/SP, Paulista/SP, Rio/rj→RJ, non-matching → null) · `src/common/served-cities.ts` (`SERVED_CITIES` SP/RJ/BH, accent/case fold, UF or state name) · 400 `CITY_NOT_SERVED` before user/card/Stripe lookups · body `{ formattedAddress, complement?, city, state, locationLat, locationLng }` strict, legacy `street`/`zipCode` tolerated · `taskSelect` + types carry `city`/`state`; both task factories default São Paulo/SP · e2e create-task +7 (298 total) · unit 342/342 (58 suites) · gate: type-check 0 · eslint 0 · drift none · review: spec ✅, approved · note for P2-T12: backfilled `city` values are raw text (not canonical) — filter via fold-match or canonicalise |
 | P2-T12 | `GET /tasks/fetch` → `{ items, page, perPage, hasMore }`, canonical served city | P2-T11 | done | api `50e859c` · `GET /tasks/fetch?city=&page=` → `{ items, page, perPage: 10, hasMore }` (fetch 11, slice 10), `TASKS_PER_PAGE = 10` exported from the service, unserved city → empty page without a query, exact match on canonical `city` over `tasks_city_status_createdAt_idx`, `createdAt desc` · **fix round 1**: `page.max(10_000)` (huge page overflowed Int32 → 500) + past-the-end case · legacy rows backfilled by P2-T11 with raw city text do not appear in the feed until normalised (by design, comment in the repository) · e2e fetch-tasks 4 → 11, sibling specs assert `items` · unit 344/344 (58 suites) · e2e 37/37, 305 passed · review: spec ✅, approved · `/tasks/active` already returns `available | in_progress | verification_required` for owners (no change needed) · orchestrator re-ran type-check/eslint/unit + the fetch-tasks e2e spec after the fix round |
-| P2-T13 | Shared `taskSelect` + `publicUserSelect` + numeric `toTaskResponse` | P2-T12 | todo |  |
+| P2-T13 | Shared `taskSelect` + `publicUserSelect` + numeric `toTaskResponse` | P2-T12 | done | api `9a5b0dc` · `task-select.ts` (`publicUserSelect` + `taskSelect` with public `ownerId` sub-select, `city`/`state`, `stripeFee`/`chargedAmount`, `completedAt`/`canceledAt`; no `transferId`) · `toTaskResponse` (all Decimals `.toNumber()`), `TaskResponse`/`PublicUserResponse`; fetch/active/by-id map through it; `FetchTasksResult`/`TaskCounterpart` removed · start-task: owner `stripeCustomerId` via `findUserStripeCustomerId` (before the claim), notification contact via `fetchUserDetailsById` inside the existing try/catch · by-id `executor` via `toPublicUser` (ruling: avoids a Decimal string) · unit 346/346 (59 suites) · e2e 37/37, 308 passed · review (opus): spec ✅, approved · **carried to P2-T14 (Important, pre-existing):** by-id still returns the raw `PaymentRecord` (`paymentIntent`, `chargeId`, `disputeId`, Decimal `amount`) to any PROXY — P2-T14 `toPaymentResponse` owner-only closes it · Minor → P2-T14: by-id e2e still wraps money in `Number(...)` |
 | P2-T14 | `GET /tasks/:id` visibility: DB role, executor-only phone, owner-only payment, deleted owner | P2-T13, P2-T04 | todo |  |
 | P2-T15 | Transaction history: all executor statuses, stored earnings, numbers, `?page=` | P2-T11 | todo |  |
 | P2-T16 | `PROXY_ACCOUNT_NOT_READY` on start, dead dictionary entries, dead code | — | todo |  |
