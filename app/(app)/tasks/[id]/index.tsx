@@ -100,14 +100,8 @@ export default function TaskDetail() {
       okLabel: 'Aceitar e iniciar',
       onOk: async () => {
         try {
-          const result = await startTask.mutateAsync({ taskId: task.id })
-          if (result.status === 'requires_action') {
-            toast.success(
-              'Tarefa aceita. Aguardando confirmação do pagamento pelo cliente.',
-            )
-          } else {
-            toast.success('Tarefa aceita! Bom trabalho.')
-          }
+          await startTask.mutateAsync({ taskId: task.id })
+          toast.success('Tarefa aceita! Bom trabalho.')
         } catch (e) {
           setTimeout(() => modal.error(extractErrorMessage(e)), 280)
         }

@@ -10,7 +10,7 @@ phases" section because they are briefs/checklists, not task tables.
 | Field | Value |
 |---|---|
 | task | `P1-T17` |
-| step | build (card `cards/P1-T17.md`, implementer dispatched) |
+| step | build (P1-T17 implementer running; P1-T18 done) |
 | files touched | — ; api Phase 0 complete at `44e09cf` |
 | last gate | app @ec22198 (Phase 0 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · `expo install --check` ✔ · maestro on rebuilt app: A 4/4 flows (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.011% (forgot-password caret) |
 | last gate (api) | api @cc3ddab (P1-T16, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 280/280 (48 suites) · e2e 32/32 suites, 227 passed, 1 skipped · CI on `release-1.0` green @d114035 |
@@ -27,6 +27,7 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T18 done (app, this commit): wire types for the Phase 1 contract; review clean, app gate green. P1-T17 (api CLAUDE.md) running in parallel (different repo). |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T16 done (api `cc3ddab`): auto-release job; review clean, gate green. P1-T17 (CLAUDE.md rewrite) dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T15 done (api `8c2e3a1`) after one fix round (atomic dispute write). e2e flake watch: `validate-task` failed once more in an implementer run (2nd occurrence), never in orchestrator runs (26 clean runs). P1-T16 dispatched. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T14 done (api `a607d7b`) after one fix round (guarded downgrade, remove guard, refund status, cancel re-read after CAS). P1-T15 dispatched. |

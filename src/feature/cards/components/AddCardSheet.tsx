@@ -106,7 +106,7 @@ export function AddCardSheet({ visible, onClose, onSuccess }: Props) {
         setSheetError(error?.message ?? 'Cartão inválido. Confira os dados.')
         return
       }
-      await createCard.mutateAsync({ token: paymentMethod.id })
+      await createCard.mutateAsync({ paymentMethodId: paymentMethod.id })
       onSuccess()
     } catch (e) {
       setSheetError(extractErrorMessage(e))

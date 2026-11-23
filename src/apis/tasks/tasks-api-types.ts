@@ -43,6 +43,8 @@ export interface TPayment {
   status: TPaymentStatus
   paymentIntent: string
   refundId: string | null
+  chargeId: string | null
+  disputeId: string | null
   createdAt: string
   updatedAt: string
 }
@@ -79,6 +81,8 @@ export interface TTask {
   offeredPrice: string
   proxyEarnings: string | null
   platformFee: string | null
+  stripeFee: string | null
+  chargedAmount: string | null
   proofImageUrl: string | null
   status: TTaskStatus
   createdAt: string
@@ -131,7 +135,7 @@ export interface TCreateTaskPayload {
   }
   cardDetails:
     | { savedCard: string }
-    | { token: string }
+    | { paymentMethodId: string }
 }
 
 export interface TCancelTaskPayload {
@@ -165,6 +169,13 @@ export interface TCreateTaskResponse {
   id: string
 }
 
-export type TStartTaskResult =
-  | { status: 'succeeded' }
-  | { status: 'requires_action'; clientSecret: string | null }
+export type TStartTaskResult = { status: 'succeeded' }
+
+/** GET /tasks/price-preview */
+export interface TChargePreview {
+  offeredPrice: number
+  platformFee: number
+  stripeFee: number
+  chargedAmount: number
+  proxyEarnings: number
+}

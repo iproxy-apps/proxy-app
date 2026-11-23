@@ -15,5 +15,10 @@ export interface TCard {
 // -----------------------------------------------------------------------------
 
 export interface TCreateCardPayload {
-  token: string
+  paymentMethodId: string
+}
+
+export interface TSetupIntent {
+  clientSecret: string
+  setupIntentId: string
 }
