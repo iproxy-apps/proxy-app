@@ -38,7 +38,7 @@
 
 **Convenções-chave**:
 - Tarefas têm **ciclo de vida** com 7 estados (ver [§2.6](#26-status-da-tarefa)).
-- Pagamento é **retido** até validação do cliente — taxa de 20% plataforma + 3,99%+R$0,39 Stripe.
+- Pagamento é **retido** até validação do cliente — o cliente paga exatamente o valor oferecido; o proxy recebe 80 %, a plataforma fica com 20 % e paga a taxa da Stripe com esse valor (D1).
 - Erros da API vêm em **português** (dicionário no backend).
 - Autenticação: **JWT RS256** via Bearer token.
 
@@ -86,12 +86,12 @@ Mapeamento entre o enum `TaskStatus` do backend e os tokens visuais.
 | `verification_required`  | Aguardando validação    | `status-validating`  | Laranja        | ✅            |
 | `completed`              | Concluída               | `status-done`        | Verde          | ✅            |
 | `canceled`               | Cancelada               | `status-cancelled`   | Vermelho       | ✅            |
-| `payout_failed`          | Falha no repasse        | `status-cancelled`   | Vermelho       | ✅ (webhook)  |
+| `payout_failed`          | Falha no repasse        | `status-cancelled`   | Vermelho       | ⚠️ legado (nunca escrito) |
 
 > **Notas**:
 > - O backend usa `canceled` (1 L) — protótipo Lovable usava `cancelled` (2 Ls). Manter `canceled` em todos os payloads.
 > - `accepted` e `on_the_way` existem no enum mas **nenhum use-case escreve neles** — só aparecem no filtro de `GET /tasks/active`. **Decisão MVP**: tratar como se não existissem na UI (Opção A).
-> - `payout_failed` é estado terminal: webhook `payout.failed` reverte a transferência, debita `walletBalance` e seta a task. UI deve mostrar como "Falha no repasse" com mesma cor de cancelado.
+> - `payout_failed` continua no enum e em `TaskStatus` só para linhas antigas: **a API não escreve mais esse estado** (D5). O webhook `payout.failed` apenas liga `payoutIssue` no usuário do proxy, sem estornar nada. Se aparecer, mostrar "Falha no repasse" com a mesma cor de cancelado.
 
 ### 2.3 Tipografia
 
@@ -169,10 +169,13 @@ Toast lib sugerida: `sonner-native` ou `burnt`. Posição: topo.
 
 ### 3.1 Autenticação
 
-- **Token**: JWT RS256 no header `Authorization: Bearer <token>`.
-- **Storage**: `expo-secure-store` (não usar AsyncStorage para segredos).
-- **Claims úteis** (ver [`SessionPayload`](#41-sessionpayload)): `sub`, `userType`, `stripeCustomerId`, `stripeAccountId`, `walletBalance`, `rating`, etc. Usar para decidir rotas e UI sem chamar API.
-- **Expiração**: tratar 401 → limpar storage → redirect para `/login`.
+- **Access token**: JWT RS256 no header `Authorization: Bearer <token>`, válido por **30 minutos** (claim `exp`).
+- **Refresh token**: string opaca devolvida junto com o JWT em `POST /auth/session` e `POST /auth/create` (`{ session, refreshToken }`). Vale 60 dias e é rotacionado a cada `POST /auth/refresh` (o token antigo deixa de valer; reapresentar um token já usado revoga a sessão inteira). Reset de senha e exclusão de conta revogam todos os refresh tokens.
+- **Storage**: `expo-secure-store` para os dois tokens (não usar AsyncStorage para segredos).
+- **Claims úteis** (ver [`SessionPayload`](#41-sessionpayload)): `sub`, `userType`, `stripeCustomerId`, `stripeAccountId`, `stripeAccountReady`, `walletBalance`, `rating`, etc. Usar para decidir rotas e UI sem chamar API.
+- **Expiração**: ao receber 401 com a sessão expirada, chamar `POST /auth/refresh { refreshToken }` uma única vez, gravar o novo par e repetir a requisição. Se o refresh devolver 401 `SESSION_REFRESH_INVALID`, limpar o storage e redirecionar para `/login`.
+- **Logout**: `POST /auth/logout { refreshToken }` (responde 204 sempre) e limpar o storage.
+- `GET /auth/session/refresh` (só com o access token) devolve `{ session }` com claims atualizadas, sem novo refresh token; `GET /auth/me` devolve o perfil atual do usuário.
 
 ### 3.2 Cliente HTTP
 
@@ -186,48 +189,56 @@ Toast lib sugerida: `sonner-native` ou `burnt`. Posição: topo.
 
 Mensagens em PT que a API pode retornar. Usar direto no toast.
 
-| Chave                                     | Status | Mensagem                                                                                 |
-| ----------------------------------------- | ------ | ---------------------------------------------------------------------------------------- |
-| `STANDARD_ERROR`                          | 400    | Algo de errado aconteceu ao processar sua requisição. Tente novamente mais tarde.        |
-| `USER_NOT_FOUND`                          | 404    | Usuário não encontrado.                                                                  |
-| `USER_EMAIL_EXISTS`                       | 409    | Um usuário com este email já existe.                                                     |
-| `USER_INVALID_CREDENTIALS`                | 401    | Credenciais fornecidas são inválidas.                                                    |
-| `USER_NOT_PROXY`                          | 403    | O usuário não possui permissão de proxy.                                                 |
-| `USER_HAS_ACTIVE_TASKS`                   | 409    | Não é possível excluir a conta: existem tarefas em andamento.                            |
-| `MERCHANT_ACCOUNT_CREATION_FAILED`        | 400    | Falha ao criar a conta do comerciante.                                                   |
-| `MERCHANT_ACCOUNT_NOT_FOUND`              | 404    | Conta de comerciante não encontrada. Crie uma conta antes de acessar o painel.           |
-| `MERCHANT_DASHBOARD_LINK_FAILED`          | 400    | Falha ao gerar o link do painel do comerciante.                                          |
-| `CARD_CREATION_FAILED`                    | 400    | Falha ao criar o método de pagamento.                                                    |
-| `NO_SAVED_CARD_FOUND`                     | 404    | Nenhum cartão salvo encontrado para este usuário.                                        |
-| `CARD_NOT_FOUND`                          | 404    | Cartão não encontrado.                                                                   |
-| `CANNOT_DELETE_CARD`                      | 403    | Você não tem permissão para excluir este cartão.                                         |
-| `TASK_NOT_FOUND`                          | 404    | Tarefa não encontrada.                                                                   |
-| `CANNOT_START_OWN_TASK`                   | 403    | Você não pode iniciar uma tarefa que você mesmo criou.                                   |
-| `TASK_NOT_AVAILABLE`                      | 400    | A tarefa não está disponível para ser iniciada.                                          |
-| `TASK_MAPPING_NOT_FOUND`                  | 404    | Mapeamento da tarefa não encontrado.                                                     |
-| `CANNOT_FINISH_TASK`                      | 403    | Você não tem permissão para finalizar esta tarefa.                                       |
-| `TASK_STARTED_AT_NOT_VALID`               | 400    | A tarefa não pode ser finalizada após mais de 1 hora do seu início.                      |
-| `TASK_NOT_AVAILABLE_FOR_VALIDATION`       | 400    | A tarefa não está em estado de validação.                                                |
-| `CANNOT_VALIDATE_TASK`                    | 403    | Você não tem permissão para validar esta tarefa.                                         |
-| `CANNOT_CANCEL_TASK`                      | 403    | Você não tem permissão para cancelar esta tarefa.                                        |
-| `PROXY_ACCOUNT_NOT_READY`                 | 409    | A conta merchant do proxy ainda não está pronta para receber pagamentos.                 |
-| `PAYMENT_FAILED`                          | 402    | Falha ao processar o pagamento.                                                          |
-| `TRANSFER_FAILED`                         | 500    | Falha ao criar transferência.                                                            |
-| `REFUND_FAILED`                           | 500    | Falha ao processar o reembolso.                                                          |
-| `PASSWORD_RESET_TOO_MANY_REQUESTS`        | 429    | Muitas tentativas de recuperação de senha. Aguarde alguns minutos antes de tentar novamente. |
-| `PASSWORD_RESET_INVALID_CODE`             | 400    | Código de recuperação inválido ou expirado.                                              |
-| `PASSWORD_RESET_SEND_FAILED`              | 500    | Falha ao enviar o código de recuperação. Tente novamente.                                |
-| `FILE_FORMAT_NOT_SUPPORTED`               | 400    | Formato de arquivo não suportado. Envie uma imagem JPG, PNG ou WEBP.                     |
-| `FILE_UPLOAD_FAILED`                      | 500    | Falha ao fazer upload do arquivo.                                                        |
-| `VALIDATION_FAILED`                       | 400    | Dados inválidos. Verifique os campos e tente novamente.                                  |
-| `UNAUTHORIZED`                            | 401    | Sessão inválida ou expirada. Entre novamente.                                            |
-| `TOO_MANY_REQUESTS`                       | 429    | Muitas tentativas. Aguarde um minuto e tente novamente.                                  |
-| `ROUTE_NOT_FOUND`                         | 404    | Rota não encontrada.                                                                     |
-| `FILE_TOO_LARGE`                          | 413    | Arquivo muito grande. O limite é 10 MB.                                                  |
-| `RESOURCE_ALREADY_EXISTS`                 | 409    | Já existe um registro com esses dados.                                                   |
-| `RESOURCE_NOT_FOUND`                      | 404    | Registro não encontrado.                                                                 |
-| `INVALID_IDENTIFIER`                      | 400    | Identificador inválido.                                                                  |
-| `HEALTH_DATABASE_UNAVAILABLE`             | 503    | Banco de dados indisponível.                                                             |
+| Chave | Status | Mensagem |
+| ----- | ------ | -------- |
+| `STANDARD_ERROR` | 400 | Algo de errado aconteceu ao processar sua requisição. Tente novamente mais tarde. |
+| `SESSION_REFRESH_INVALID` | 401 | Sua sessão expirou. Entre novamente. |
+| `USER_NOT_CLIENT` | 403 | Apenas clientes podem criar tarefas. |
+| `SIGN_UP_UNAVAILABLE` | 503 | Não foi possível concluir o cadastro agora. Tente novamente em alguns minutos. |
+| `USER_NOT_FOUND` | 404 | Usuário não encontrado. |
+| `USER_EMAIL_EXISTS` | 409 | Um usuário com este email já existe. |
+| `USER_INVALID_CREDENTIALS` | 401 | Credenciais fornecidas são inválidas. |
+| `USER_NOT_PROXY` | 403 | O usuário não possui permissão de proxy. |
+| `PROXY_ACCOUNT_NOT_READY` (ao aceitar a tarefa) | 409 | Conclua a configuração da sua conta na Carteira para aceitar tarefas. |
+| `MERCHANT_ACCOUNT_CREATION_FAILED` | 400 | Falha ao criar a conta do comerciante. |
+| `MERCHANT_ACCOUNT_NOT_FOUND` | 404 | Conta de comerciante não encontrada. Crie uma conta antes de acessar o painel. |
+| `MERCHANT_DASHBOARD_LINK_FAILED` | 400 | Falha ao gerar o link do painel do comerciante. |
+| `USER_HAS_ACTIVE_TASKS` | 409 | Você possui tarefas em andamento. Finalize ou cancele todas antes de excluir a conta. |
+| `CARD_CREATION_FAILED` | 400 | Falha ao criar o método de pagamento. |
+| `NO_SAVED_CARD_FOUND` | 404 | Nenhum cartão salvo encontrado para este usuário. |
+| `CARD_NOT_FOUND` | 404 | Cartão não encontrado. |
+| `CARD_NOT_CONFIRMED` | 400 | Cartão não confirmado. Adicione o cartão novamente. |
+| `CARD_ALREADY_EXISTS` | 409 | Já existe um cartão salvo. Atualize a tela e tente novamente. |
+| `CANNOT_DELETE_CARD` | 403 | Você não tem permissão para remover este cartão. |
+| `CITY_NOT_SERVED` | 400 | Ainda não atendemos nessa cidade. Por enquanto estamos em São Paulo, Rio de Janeiro e Belo Horizonte. |
+| `TASK_NOT_FOUND` | 404 | Tarefa não encontrada. |
+| `CANNOT_START_OWN_TASK` | 403 | Você não pode iniciar uma tarefa que você mesmo criou. |
+| `TASK_NOT_AVAILABLE` | 400 | A tarefa não está disponível para ser iniciada. |
+| `TASK_MAPPING_NOT_FOUND` | 404 | Mapeamento da tarefa não encontrado. |
+| `PROOF_PHOTO_REQUIRED` | 400 | Envie uma foto de comprovação para finalizar a tarefa. |
+| `TASK_STATUS_CONFLICT` | 409 | A tarefa mudou de estado. Atualize a tela e tente novamente. |
+| `CANNOT_FINISH_TASK` | 403 | Você não tem permissão para finalizar esta tarefa. |
+| `CANNOT_VALIDATE_TASK` | 403 | Você não tem permissão para validar esta tarefa. |
+| `CANNOT_CANCEL_TASK` | 403 | Você não tem permissão para cancelar esta tarefa. |
+| `PROXY_ACCOUNT_NOT_READY` (ao validar a tarefa) | 409 | Não foi possível liberar o pagamento. O Proxy ainda não terminou de configurar a conta para receber. |
+| `TASK_TRANSFER_FAILED` | 500 | Falha ao transferir o valor da tarefa para o proxy. |
+| `PAYMENT_FAILED` | 409 | Não foi possível cobrar o cliente. Tente outra tarefa. |
+| `PAYMENT_PENDING` | 409 | Ainda estamos confirmando a cobrança do cliente. Tente novamente em instantes. |
+| `PAYMENT_NOT_CONFIRMED` | 409 | O pagamento desta tarefa ainda não foi confirmado. Tente novamente em alguns minutos. |
+| `PAYMENT_DISPUTED` | 409 | O pagamento desta tarefa está em disputa. Fale com o suporte. |
+| `REFUND_FAILED` | 500 | Falha ao processar o reembolso. |
+| `PASSWORD_RESET_INVALID_CODE` | 400 | Código de recuperação inválido ou expirado. |
+| `FILE_FORMAT_NOT_SUPPORTED` | 400 | Formato de arquivo não suportado. Envie uma imagem JPG, PNG, WEBP ou HEIC. |
+| `FILE_UPLOAD_FAILED` | 500 | Falha ao fazer upload do arquivo. |
+| `FILE_TOO_LARGE` | 413 | Arquivo muito grande. O limite é 10 MB. |
+| `VALIDATION_FAILED` | 400 | Dados inválidos. Verifique os campos e tente novamente. |
+| `UNAUTHORIZED` | 401 | Sessão inválida ou expirada. Entre novamente. |
+| `TOO_MANY_REQUESTS` | 429 | Muitas tentativas. Aguarde um minuto e tente novamente. |
+| `ROUTE_NOT_FOUND` | 404 | Rota não encontrada. |
+| `RESOURCE_ALREADY_EXISTS` | 409 | Já existe um registro com esses dados. |
+| `RESOURCE_NOT_FOUND` | 404 | Registro não encontrado. |
+| `INVALID_IDENTIFIER` | 400 | Identificador inválido. |
+| `HEALTH_DATABASE_UNAVAILABLE` | 503 | Banco de dados indisponível. |
 
 ### 3.4 Endpoints (referência rápida)
 
@@ -235,32 +246,39 @@ Detalhes de request/response em cada tela em [§8](#8-especificação-por-tela).
 
 | Método | Path                          | Auth | Throttle | Uso                                      |
 | ------ | ----------------------------- | ---- | -------- | ---------------------------------------- |
-| POST   | `/auth/create`                | ❌    | 5/min    | Cadastro                                 |
-| POST   | `/auth/session`               | ❌    | 5/min    | Login                                    |
+| POST   | `/auth/create`                | ❌    | 5/min    | Cadastro — `{ session, refreshToken }`   |
+| POST   | `/auth/session`               | ❌    | 5/min    | Login — `{ session, refreshToken }`; 401 `USER_INVALID_CREDENTIALS` também para e-mail desconhecido |
+| GET    | `/auth/me`                    | ✅    | 100/min  | Perfil atual (ver §4.1)                  |
+| GET    | `/auth/session/refresh`       | ✅    | 100/min  | Novo JWT com claims atualizadas (`{ session }`, só access token) |
+| POST   | `/auth/refresh`               | ❌    | 30/min   | Troca o refresh token — `{ session, refreshToken }` |
+| POST   | `/auth/logout`                | ❌    | 10/min   | Revoga o refresh token (204)             |
 | POST   | `/auth/forgot-password`       | ❌    | 5/min    | Solicitar código de reset                |
 | POST   | `/auth/verify-reset-code`     | ❌    | 5/min    | Validar código antes do reset            |
-| POST   | `/auth/reset-password`        | ❌    | 100/min  | Redefinir senha                          |
-| POST   | `/auth/update-profile`        | ✅    | 100/min  | Atualizar perfil (devolve novo JWT)      |
+| POST   | `/auth/reset-password`        | ❌    | 5/min    | Redefinir senha (revoga todos os refresh tokens) |
+| POST   | `/auth/update-profile`        | ✅    | 100/min  | Atualizar nome e/ou telefone — devolve `{ session }` |
 | POST   | `/auth/merchant-account`      | ✅    | 100/min  | Criar/obter link Stripe Connect (Proxy)  |
 | GET    | `/auth/merchant-dashboard`    | ✅    | 100/min  | Link do painel Stripe (Proxy)            |
-| GET    | `/auth/transaction-history`   | ✅    | 100/min  | Histórico completo do usuário            |
-| DELETE | `/auth/account`               | ✅    | 100/min  | Soft delete da conta (bloqueado se tarefas ativas) |
+| GET    | `/auth/transaction-history?page=` | ✅ | 100/min | Histórico paginado (20 por página)      |
+| DELETE | `/auth/account`               | ✅    | 100/min  | Soft delete da conta (cancela tarefas `available`; bloqueado se `in_progress`/`verification_required`) |
 | POST   | `/tasks/create`               | ✅    | 100/min  | Criar tarefa (Cliente) — retorna `{ id }` |
-| GET    | `/tasks/fetch?city=&page=`    | ✅    | 100/min  | Listar tarefas disponíveis (Proxy)       |
+| GET    | `/tasks/fetch?city=&page=`    | ✅    | 100/min  | Listar tarefas disponíveis (Proxy) — `{ items, page, perPage, hasMore }` |
+| GET    | `/tasks/price-preview?offeredPrice=` | ✅ | 100/min | Breakdown do preço (cinco números)      |
 | GET    | `/tasks/active`               | ✅    | 100/min  | Tarefas ativas do usuário (owner ou executor) |
-| GET    | `/tasks/:id`                  | ✅    | 100/min  | Detalhe da tarefa + `payment` embarcado  |
+| GET    | `/tasks/:id`                  | ✅    | 100/min  | Detalhe da tarefa + `payment` embarcado (só dono) |
+| GET    | `/tasks/:id/proof`            | ✅    | 100/min  | Foto de prova (imagem; só dono ou executor) |
 | POST   | `/tasks/start`                | ✅    | 100/min  | Aceitar + iniciar tarefa (Proxy)         |
 | POST   | `/tasks/finish`               | ✅    | 100/min  | Finalizar com foto (Proxy, multipart)    |
 | POST   | `/tasks/validate`             | ✅    | 100/min  | Validar + pagar + avaliar (Cliente)      |
 | POST   | `/tasks/cancel`               | ✅    | 100/min  | Cancelar tarefa (Cliente, até 1h)        |
-| POST   | `/card/create`                | ✅    | 100/min  | Salvar cartão (token Stripe)             |
+| POST   | `/card/setup-intent`          | ✅    | 100/min  | Criar SetupIntent para salvar cartão — `{ clientSecret, setupIntentId }` |
+| POST   | `/card/create`                | ✅    | 100/min  | Salvar cartão (`{ paymentMethodId }`)    |
 | GET    | `/card/fetch`                 | ✅    | 100/min  | Buscar cartão salvo                      |
 | DELETE | `/card/:id`                   | ✅    | 100/min  | Remover cartão (detach Stripe + soft delete) |
 
-**Rate limiting**: 100 req/min default, 5 req/min em `/auth/session`, `/auth/create`, `/auth/forgot-password` e `/auth/verify-reset-code`. Webhooks são `@SkipThrottle()`. Em 429, mostrar toast pedindo para aguardar.
+**Rate limiting**: 100 req/min default, 5 req/min em `/auth/session`, `/auth/create`, `/auth/forgot-password`, `/auth/verify-reset-code` e `/auth/reset-password`, 30 req/min em `/auth/refresh`, 10 req/min em `/auth/logout`. Webhooks são `@SkipThrottle()`. Em 429, mostrar toast pedindo para aguardar.
 
 > **Gaps anteriores — resolvidos pelo backend** (commit `8bc3c5e`, 13/05/2026):
-> - ✅ `GET /tasks/:id` agora existe — usar em todas as telas de detalhe (em vez de cachear de `/tasks/fetch`). Response inclui `payment` como objeto embarcado, útil para tratar fluxo 3DS.
+> - ✅ `GET /tasks/:id` agora existe — usar em todas as telas de detalhe (em vez de cachear de `/tasks/fetch`). Response inclui `payment` como objeto embarcado (só para o dono da tarefa).
 > - ✅ `POST /tasks/create` agora retorna `{ id }` — permite `router.push` imediato para o detalhe.
 > - ✅ `POST /tasks/validate` aceita `{ rating?: 1-5, comment?: string(max 500) }` — avaliação integrada à validação.
 > - ✅ `DELETE /card/:id` para remover cartão.
@@ -268,7 +286,7 @@ Detalhes de request/response em cada tela em [§8](#8-especificação-por-tela).
 > - ✅ `GET /tasks/active` para listar tarefas ativas do usuário (substitui a heurística sobre `/auth/transaction-history`).
 >
 > **Gap remanescente**:
-> - Estados `accepted` e `on_the_way` continuam **órfãos no enum** (nenhum use-case escreve neles). Confirmada a **Opção A**: UI ignora esses estados e segue 5 estados reais (`available`, `in_progress`, `verification_required`, `completed`, `canceled` + `payout_failed` derivado de webhook).
+> - Estados `accepted` e `on_the_way` continuam **órfãos no enum** (nenhum use-case escreve neles). Confirmada a **Opção A**: UI ignora esses estados e segue 5 estados reais (`available`, `in_progress`, `verification_required`, `completed`, `canceled`). `payout_failed` é valor legado do enum, nunca escrito pela 1.0 (D5).
 
 ---
 
@@ -282,24 +300,60 @@ Conteúdo do JWT. Fonte de verdade para UI sem round-trip.
 
 ```ts
 type UserType = 'CLIENT' | 'PROXY'
-type DocumentType = 'RG' | 'CPF' | 'CNPJ'
 
 interface SessionPayload {
   sub: string                // user ID
   email: string
   name: string
   avatarUrl: string | null
-  phoneNumber: string
+  phoneNumber: string | null
   stripeAccountId: string | null
+  stripeAccountReady: boolean
   stripeCustomerId: string | null
   userType: UserType
-  documentType: DocumentType | null
-  documentUrl: string | null
-  isVerified: boolean
   rating: number             // 0–5
   totalTasksCompleted: number
   totalTasksCreated: number
   walletBalance: number
+  payoutIssue: boolean       // Stripe falhou ao pagar o proxy (webhook payout.failed)
+  cardActionRequired: boolean // cartão do cliente não pôde ser cobrado; pedir para confirmar na Carteira
+  termsAccepted: boolean
+  iat: number
+  exp: number                // iat + 30 minutos
+}
+```
+
+Não há claims de documento (tipo ou URL de documento, verificação): a API não guarda documentos de identidade (D12).
+
+Resposta de login e cadastro (`POST /auth/session`, `POST /auth/create`) e de `POST /auth/refresh`:
+
+```ts
+interface AuthResponse {
+  session: string       // JWT (access token, 30 min)
+  refreshToken: string  // opaco, 60 dias, rotacionado a cada refresh
+}
+```
+
+`POST /auth/update-profile` e `GET /auth/session/refresh` devolvem só `{ session: string }`.
+
+`GET /auth/me`:
+
+```ts
+interface Me {
+  id: string
+  name: string
+  email: string
+  phoneNumber: string | null
+  avatarUrl: string | null
+  userType: UserType
+  rating: number
+  totalTasksCompleted: number
+  totalTasksCreated: number
+  walletBalance: number
+  stripeAccountId: string | null
+  stripeAccountReady: boolean
+  payoutIssue: boolean
+  cardActionRequired: boolean
   termsAccepted: boolean
 }
 ```
@@ -310,27 +364,54 @@ interface SessionPayload {
 type TaskStatus =
   | 'available' | 'accepted' | 'on_the_way'
   | 'in_progress' | 'verification_required'
-  | 'completed' | 'canceled'
+  | 'completed' | 'canceled' | 'payout_failed'
+
+interface PublicUser {
+  id: string
+  name: string
+  avatarUrl: string | null
+  rating: number
+  totalTasksCreated: number
+}
 
 interface Task {
   id: string
   title: string
   description: string
+  city: string                 // canonical served city
+  state: string
   locationLat: number
   locationLng: number
   locationAddress: string
-  offeredPrice: number
+  offeredPrice: number         // dinheiro sempre como number (BRL)
   proxyEarnings: number | null
   platformFee: number | null
+  stripeFee: number | null
+  chargedAmount: number | null // igual a offeredPrice
   status: TaskStatus
-  proofImageUrl: string | null
+  proofImageUrl: string | null // chave de storage (<taskId>/<uuid>.jpg), NÃO uma URL: carregar a imagem em GET /tasks/:id/proof com o header Bearer
   startedAt: string | null
   completedAt: string | null
   canceledAt: string | null
   createdAt: string
-  owner: string              // userId
-  ownerId?: Pick<SessionPayload, 'id' | 'name' | 'email' | 'phoneNumber' | 'avatarUrl' | 'rating' | 'isVerified' | 'totalTasksCompleted' | 'totalTasksCreated'>
+  owner: string                // userId
+  ownerId: PublicUser          // dono, formato público (sem e-mail nem telefone)
 }
+
+// GET /tasks/:id
+interface TaskDetail extends Omit<Task, 'ownerId'> {
+  ownerId: PublicUser & { phoneNumber?: string | null }          // telefone só para o executor, com a tarefa em in_progress / verification_required
+  executorId: string | null
+  executor: (PublicUser & { phoneNumber?: string | null }) | null // telefone só para o dono, nos mesmos status
+  payment: {                   // só o dono recebe; sem paymentIntent
+    id: string; taskId: string; amount: number
+    status: 'pending' | 'succeeded' | 'failed' | 'refunded' | 'disputed'
+    refundId: string | null; createdAt: string; updatedAt: string
+  } | null
+}
+
+// GET /tasks/fetch
+interface TaskPage { items: Task[]; page: number; perPage: number; hasMore: boolean }
 ```
 
 ### 4.3 Card
@@ -415,7 +496,7 @@ Localização: `src/components/`.
 | `Avatar`              | `name`, `hue?`, `size?`, `uri?`                                        | Gradiente com iniciais ou foto                                    |
 | `EmptyState`          | `icon`, `title`, `description?`, `action?`                             | Estado vazio padronizado                                          |
 | `Skeleton`            | `variant`                                                              | Shimmer de loading (task card, line, circle)                      |
-| `PriceBreakdown`      | `amount`                                                               | Tabela de valor + taxa plataforma + taxa Stripe + total           |
+| `PriceBreakdown`      | `amount`                                                               | Resumo de valor: "Você paga" (= valor oferecido) e "Proxy recebe" (80 %) |
 | `FormInput`           | `label`, `error?`, `hint?`, `icon?`, ...`TextInput` props              | Wrapper de input com label + erro + hint                          |
 | `Button`              | `variant: 'primary' \| 'secondary' \| 'outline' \| 'ghost' \| 'destructive'`, `size`, `loading?`, `disabled?` | Botão com haptic; `loading` → spinner |
 | `PhotoUploader`       | `onPicked(uri)`, `uri?`                                                | Abre câmera/galeria via `expo-image-picker`                       |
@@ -446,8 +527,8 @@ Localização: `src/components/`.
 ```
 
 **Regras**:
-- Após cadastro ou login com sucesso, salvar token em SecureStore e navegar para `/(app)` com `router.replace()`.
-- Em 401, limpar storage e ir para `/(auth)/sign-in`.
+- Após cadastro ou login com sucesso, salvar `session` e `refreshToken` em SecureStore e navegar para `/(app)` com `router.replace()`.
+- Em 401 por sessão expirada, tentar `POST /auth/refresh` uma vez; se falhar com `SESSION_REFRESH_INVALID`, limpar storage e ir para `/(auth)/sign-in`.
 
 ### 7.2 Ciclo de vida da tarefa
 
@@ -458,7 +539,7 @@ Versão pragmática que **segue o backend atual** (sem estados intermediários `
 │available │── Proxy clica "Aceitar e iniciar" ──────────▶│in_progress│
 └──────────┘                                              └─────┬─────┘
                                                                 │
-                        Proxy envia foto de prova (até 1h)      │
+                        Proxy envia foto de prova               │
                                                                 ▼
                                                         ┌───────────────────────┐
                                                         │verification_required  │
@@ -468,37 +549,37 @@ Versão pragmática que **segue o backend atual** (sem estados intermediários `
                                                         ┌───────────┐
                                                         │completed  │
                                                         └───────────┘
-                                                              │
-                              webhook payout.failed (rev. transfer + débito wallet)
-                                                              ▼
-                                                       ┌───────────────┐
-                                                       │payout_failed  │
-                                                       └───────────────┘
 
 Cancelamento: disponível OU in_progress (até 1h de início) → canceled (via Cliente)
-Reversão via dispute: webhook charge.dispute.created → debita wallet do proxy se já validada
+Liberação automática: verification_required há 7 dias → completed (job diário, valida como o dono)
+Disputa: webhook charge.dispute.created marca o pagamento como disputed e bloqueia finish, validate e cancel
 ```
 
-**Decisão do MVP** (Opção A confirmada): seguir os estados reais que o backend escreve — `available`, `in_progress`, `verification_required`, `completed`, `canceled`, `payout_failed`. Os estados `accepted` e `on_the_way` do enum **não são suportados** pela API e devem ser ignorados na UI.
+**Decisão do MVP** (Opção A confirmada): seguir os estados reais que o backend escreve — `available`, `in_progress`, `verification_required`, `completed`, `canceled`. `payout_failed` não é mais escrito (D5): o enum o mantém só para linhas antigas, e uma falha de repasse liga `payoutIssue` no usuário do proxy. Os estados `accepted` e `on_the_way` do enum **não são suportados** pela API e devem ser ignorados na UI.
 
 ### 7.3 Fluxo de pagamento
 
-1. **Cliente cria tarefa** → `POST /tasks/create` com `cardDetails.savedCard` (stripeCardId) ou `cardDetails.token`. Backend cria a tarefa em `available` e retorna `{ id }`.
-2. **Proxy aceita** → `POST /tasks/start` → backend cobra o cliente via Stripe PaymentIntent **imediatamente**, mas o valor fica retido na plataforma (não transfere ainda).
-   - Resposta possível 1: `{ status: 'succeeded' }` — pagamento ok, task vira `in_progress`.
-   - Resposta possível 2: `{ status: 'requires_action', clientSecret }` — 3DS necessário. Frontend deve confirmar via `@stripe/stripe-react-native` (`confirmPayment`). O `payment` row já existe como `pending` e webhook `payment_intent.succeeded` finaliza. Frontend pode consultar via `GET /tasks/:id` (response embarca `payment`).
-3. **Proxy finaliza** → `POST /tasks/finish` com foto → task vira `verification_required`.
-4. **Cliente valida** → `POST /tasks/validate` com `{ taskId, rating?, comment? }` → backend:
-   - Cria `stripe.transfers.create` para a Connect account do Proxy.
-   - Persiste `transferId`, `proxyEarnings`, `platformFee` na task.
-   - Credita `walletBalance` do proxy.
-   - Insere rating na tabela `Ratings` (se enviado) e recomputa `Users.rating` (média).
-   - Erro `PROXY_ACCOUNT_NOT_READY` (409) se o proxy não tem `stripeAccountReady`.
-5. **Cancelamento** (Cliente, até 1h após `startedAt`) → `POST /tasks/cancel` → backend refunda via Stripe e task vira `canceled`.
+**Modelo de taxas (D1)**: o cliente paga exatamente o `offeredPrice`; o proxy recebe 80 % (`proxyEarnings`); a plataforma fica com 20 % (`platformFee`) e paga a taxa da Stripe com esse valor. O app nunca soma taxa por cima do valor oferecido. `GET /tasks/price-preview?offeredPrice=` devolve os cinco números (`offeredPrice`, `platformFee`, `stripeFee`, `chargedAmount`, `proxyEarnings`).
 
-**Estados terminais por webhook**:
-- `charge.dispute.created` (cliente abre disputa pós-validação) → debita `walletBalance` do proxy automaticamente.
-- `payout.failed` (Stripe não conseguiu pagar o proxy) → reverte transfer, debita wallet, decrementa contador, task vira `payout_failed`.
+1. **Cliente salva o cartão** → `POST /card/setup-intent` devolve `{ clientSecret, setupIntentId }`; o app confirma o SetupIntent no próprio aparelho com `@stripe/stripe-react-native` (o 3DS, se houver, acontece **aqui**, uma única vez) e então chama `POST /card/create { paymentMethodId }`. Um cartão por usuário; salvar outro substitui o anterior. Salvar o cartão limpa `cardActionRequired`.
+2. **Cliente cria tarefa** → `POST /tasks/create` com `cardDetails.savedCard` (stripeCardId) ou `cardDetails.paymentMethodId`. Backend cria a tarefa em `available` e retorna `{ id }`. Nada é cobrado ainda.
+3. **Proxy aceita** → `POST /tasks/start` → backend cobra o cartão do cliente **off-session**, com captura automática, no mesmo ato. O valor fica retido na plataforma até a validação.
+   - Sucesso: `{ status: 'succeeded' }`, a tarefa fica `in_progress`.
+   - 409 `PAYMENT_FAILED`: o cartão não pôde ser cobrado; a tarefa volta a `available`, o cliente recebe um e-mail e `cardActionRequired` é ligado.
+   - 409 `PAYMENT_PENDING`: resultado desconhecido; a reserva do proxy é mantida, repetir `POST /tasks/start` depois (ou consultar `GET /tasks/:id`, que embarca `payment` para o dono).
+   - Não há desafio de autenticação no aparelho do proxy e a resposta nunca traz `clientSecret`.
+4. **Proxy finaliza** → `POST /tasks/finish` com foto obrigatória → task vira `verification_required`.
+5. **Cliente valida** → `POST /tasks/validate` com `{ taskId, rating?, comment? }` → backend:
+   - Cria `stripe.transfers.create` para a Connect account do Proxy (ligada à cobrança original).
+   - Persiste `transferId` na task e credita `walletBalance` do proxy.
+   - Insere rating na tabela `Ratings` (se enviado) e recomputa `Users.rating` (média).
+   - Erros: `PROXY_ACCOUNT_NOT_READY` (409) se o proxy não tem `stripeAccountReady`; `PAYMENT_NOT_CONFIRMED` / `PAYMENT_DISPUTED` (409); `TASK_STATUS_CONFLICT` (409) fora de `verification_required`; `TASK_TRANSFER_FAILED` (500).
+   - Se o cliente não validar em 7 dias, um job diário valida a tarefa automaticamente (D18).
+6. **Cancelamento** (Cliente: `available`, ou `in_progress` até 1h após `startedAt`) → `POST /tasks/cancel` → backend refunda a cobrança integralmente e task vira `canceled`.
+
+**Webhooks**:
+- `charge.dispute.created` → pagamento `disputed`; sem movimentação de saldo; bloqueia finish, validate e cancel (409 `PAYMENT_DISPUTED`).
+- `payout.failed` (Stripe não conseguiu pagar o proxy) → liga `payoutIssue` no usuário; nada é estornado e a task não muda de estado.
 
 **No app**: após qualquer ação, refetch a task via `GET /tasks/:id` para refletir o estado real (que pode ter mudado via webhook).
 
@@ -594,41 +675,42 @@ Cada seção segue o mesmo template:
 | Badge perfil       | —           | "Cadastrando como Cliente/Proxy" | Read-only                                 |
 | Nome completo      | ✅           | Seu nome                 |                                                   |
 | Email              | ✅           | voce@email.com           | Tipo email                                        |
-| Telefone           | ✅           | (11) 99999-0000          | Máscara                                           |
-| Senha              | ✅           | Mínimo 8 caracteres      | `type=password`, mínimo 8                         |
-| Tipo de documento  | ✅           | CPF / CNPJ (toggle)      | Altera máscara do próximo campo                   |
-| Documento          | ✅           | 000.000.000-00           | Máscara dinâmica                                  |
-| Foto do documento  | ✅ (Proxy)   | "Foto do documento (frente)" | Upload via `expo-image-picker`, faz upload separado e armazena URL |
+| Telefone           | ✅ (obrigatório no app; opcional na API — `phoneNumber?` 8–20) | (11) 99999-0000          | Máscara; 8 a 20 caracteres                        |
+| Senha              | ✅           | Mínimo 8 caracteres      | `type=password`, 8 a 72 caracteres                |
 | Termos             | ✅           | "Li e aceito os **Termos de Uso** e a **Política de Privacidade**." | Checkbox |
+
+Sem tipo, número ou foto de documento: a API não coleta nem guarda documentos de identidade (D12).
 
 **Copy**:
 - Botão: `Criar minha conta`
 - Erro de termos: toast `Aceite os termos para continuar.`
-- Erro de foto (Proxy): toast `Envie a foto do seu documento.`
 - Sucesso: toast `Conta criada! Bem-vindo ao Proxy.`
 
 **API**: `POST /auth/create`
 
-Request body:
+Request body (estrito: campos desconhecidos são rejeitados):
 ```ts
 {
-  name, email, password, userType,
-  phoneNumber, documentType, documentUrl?,
+  name,                 // 2 a 80 caracteres
+  email,                // normalizado para minúsculas
+  password,             // 8 a 72 caracteres
+  userType,             // 'CLIENT' | 'PROXY'
+  phoneNumber?,         // 8 a 20 caracteres
   termsAccepted: true
 }
 ```
-Response: `{ session: string }` (JWT)
+Response: `{ session: string, refreshToken: string }`
 
 Erros tratados:
 - `USER_EMAIL_EXISTS` → toast "Um usuário com este email já existe."
+- `SIGN_UP_UNAVAILABLE` (503) → toast da mensagem; a conta não foi criada, pode tentar de novo.
 - `STANDARD_ERROR` → toast da mensagem.
 
-**Componentes**: `ScreenHeader`, `FormInput`, toggles de documento, `PhotoUploader`, checkbox, `Button`.
+**Componentes**: `ScreenHeader`, `FormInput`, checkbox, `Button`.
 
-**Navegação**: sucesso → salvar JWT → `router.replace('/(app)')`.
+**Navegação**: sucesso → salvar `session` e `refreshToken` → `router.replace('/(app)')`.
 
 **Edge cases**:
-- Upload do documento falhar → manter em memória, permitir retry.
 - Validar senha >= 8 chars antes de enviar.
 
 ---
@@ -657,13 +739,12 @@ Erros tratados:
 **API**: `POST /auth/session`
 
 Request: `{ email, password }`
-Response: `{ session: string }`
+Response: `{ session: string, refreshToken: string }`
 
 Erros:
-- `USER_NOT_FOUND` → toast da mensagem.
-- `USER_INVALID_CREDENTIALS` → toast "Credenciais fornecidas são inválidas."
+- `USER_INVALID_CREDENTIALS` (401) → toast "Credenciais fornecidas são inválidas." (também para e-mail desconhecido e conta excluída: a API não revela se o e-mail existe).
 
-**Navegação**: sucesso → `router.replace('/(app)')`. "Esqueci a senha" → `/(auth)/forgot-password`. "Criar conta" → `/(auth)/choose-profile`.
+**Navegação**: sucesso → salvar `session` e `refreshToken` → `router.replace('/(app)')`. "Esqueci a senha" → `/(auth)/forgot-password`. "Criar conta" → `/(auth)/choose-profile`.
 
 ---
 
@@ -695,13 +776,13 @@ Erros:
 - Sub: "Mínimo 8 caracteres com letras e números."
 - Inputs: "Nova senha" e "Confirme a nova senha" (ambos `type=password`)
 - CTA: "Salvar nova senha"
-- Validação local: iguais e >= 6 chars (backend mínimo).
+- Validação local: iguais e >= 8 chars (backend mínimo: 8, máximo 72).
 - API: `POST /auth/reset-password { email, code, newPassword }` → `{ message }`
 
 **Toast OK (final)**: `Senha alterada! Faça login.` → redireciona `/(auth)/sign-in`.
 
 **Edge cases**:
-- Erro `PASSWORD_RESET_TOO_MANY_REQUESTS` → toast orientando esperar.
+- Pedidos repetidos de código: `POST /auth/forgot-password` sempre responde o mesmo 200 genérico (a API limita a 3 códigos por 15 minutos em silêncio); o limite de requisições é 5/min (429 `TOO_MANY_REQUESTS` → toast da mensagem). Cada código aceita no máximo 5 tentativas.
 - Se usuário fechar antes do step 3 sem concluir, perde o progresso (não guardar em storage).
 
 ---
@@ -765,7 +846,7 @@ Erros:
 | Empty title    | Nenhuma tarefa por aqui                                                 |
 | Empty desc     | Tente trocar de cidade ou volte em alguns minutos.                      |
 
-**API**: `GET /tasks/fetch?city=<city>&page=1` → array de tarefas (10 por página).
+**API**: `GET /tasks/fetch?city=<city>&page=1` → `{ items: Task[], page, perPage: 10, hasMore }`. Cidade fora das atendidas (São Paulo, Rio de Janeiro, Belo Horizonte) devolve página vazia.
 
 **Estados**:
 - Loading (3 skeletons)
@@ -776,7 +857,7 @@ Erros:
 
 **Edge cases**:
 - Permissão de localização negada → não mostrar distância, só endereço.
-- Paginação: scroll infinito (próxima página quando chega no fim da lista).
+- Paginação: scroll infinito; pedir a próxima página enquanto `hasMore === true`.
 
 ---
 
@@ -794,22 +875,21 @@ Erros:
 | ------------ | --------------------------------- | --------------- |
 | Título       | Ex: Trocar lâmpada da sala        | obrigatório     |
 | Descrição    | Conte tudo que importa...         | obrigatório, ≥ 10 chars |
-| Cidade       | Toggle SP / RJ / BH               | obrigatório     |
-| Endereço     | Rua, número — bairro              | obrigatório     |
+| Endereço     | Busca com autocomplete (Google Places, `country:br`), restrita às cidades atendidas (app-side, Phase 3 P3-T14b; a API só valida `city`/`state`) | obrigatório; a seleção preenche endereço formatado, cidade, estado e coordenadas |
+| Complemento  | Apto, bloco, referência           | opcional, até 120 chars |
 | Data         | (picker nativo)                   | obrigatório, ≥ hoje |
 | Hora         | (picker nativo)                   | obrigatório     |
-| Valor        | 0,00 (prefixo "R$")               | ≥ R$ 10,00      |
+| Valor        | 0,00 (prefixo "R$")               | mínimo R$ 20,00, máximo R$ 10.000,00 |
 
-Hints: "Seja claro e direto." / "Detalhes ajudam o Proxy a entender o serviço." / "Mínimo R$ 10,00"
+Hints: "Seja claro e direto." / "Detalhes ajudam o Proxy a entender o serviço." / "Mínimo R$ 20,00"
 
 **Passo 2 — Pagamento**:
 - Resumo da tarefa (card não editável)
 - Seleção de cartão salvo OU "+ Adicionar cartão" (abre modal de cartões)
-- Breakdown (`PriceBreakdown`):
+- Breakdown (`PriceBreakdown`, dados de `GET /tasks/price-preview?offeredPrice=`):
   - Valor oferecido: R$ X
-  - Taxa da plataforma (20%): R$ Y
-  - Taxa Stripe (3,99% + R$ 0,39): R$ Z
-  - **Total a pagar: R$ W**
+  - **Você paga: R$ X** (exatamente o valor oferecido; `chargedAmount`)
+  - O Proxy recebe 80 %: R$ Y (`proxyEarnings`); a plataforma fica com 20 % e paga a taxa da Stripe
 - Disclaimer: "O valor fica retido com segurança e só é repassado ao Proxy quando você validar a conclusão."
 - Botões: "Voltar" / "Publicar tarefa".
 
@@ -819,15 +899,17 @@ Request:
 ```ts
 {
   title, description,
-  address: { city, state, street, zipCode, locationLat, locationLng },
-  pricing: { offeredPrice },
-  cardDetails: { savedCard: stripeCardId } // ou { token }
+  address: { formattedAddress, complement?, city, state, locationLat, locationLng },
+  pricing: { offeredPrice },          // 20 a 10000, até 2 casas decimais
+  cardDetails: { savedCard: stripeCardId } // ou { paymentMethodId }
 }
 ```
 
-> **Gap de UX**: backend espera `state` e `zipCode`, e `locationLat/Lng`. O protótipo não coletava — precisa decidir: (a) acrescentar campos na UI, (b) hardcodar state por cidade + usar `expo-location` para lat/lng aproximado, (c) integrar geocoder. **MVP**: (b), com state fixo por cidade e usar localização atual como lat/lng.
+O endereço vem da busca Google Places (`country:br`) restrita às cidades atendidas; a API valida `city`/`state` contra São Paulo/SP, Rio de Janeiro/RJ e Belo Horizonte/MG. (Os campos legados `street` + `zipCode` ainda são aceitos no lugar de `formattedAddress` até a Fase 5; o app novo não os envia.)
 
 **Erros**:
+- `CITY_NOT_SERVED` (400) → toast da mensagem.
+- `USER_NOT_CLIENT` (403) → toast da mensagem.
 - `CARD_CREATION_FAILED` → toast da mensagem.
 - `NO_SAVED_CARD_FOUND` → sugerir adicionar cartão.
 
@@ -849,7 +931,7 @@ Request:
 2. Card de resumo: título + `StatusBadge`, descrição, localização, data/hora, valor em destaque.
 3. Seção de pessoas envolvidas (executor ou "Aguardando").
 4. `TaskTimeline` (stepper de 5 passos — alinhado ao backend).
-5. Seção de foto de prova (se `proofImageUrl`).
+5. Seção de foto de prova (se `proofImageUrl`): `proofImageUrl` é uma chave de storage, não uma URL; carregar a imagem com `GET /tasks/:id/proof` enviando o header `Authorization: Bearer`.
 6. Seção de avaliação (se status `verification_required` e cliente).
 7. Recibo (se status `completed`).
 8. Botão de ação sticky no rodapé.
@@ -867,13 +949,12 @@ Request:
 **Fonte de dados**: `GET /tasks/:id` retorna a task completa **com o objeto `payment` embarcado** — usar como única fonte de verdade. Refetch após cada ação.
 
 **APIs por ação**:
-- Proxy aceitar: `POST /tasks/start { taskId }` → response `{ status: 'succeeded' | 'requires_action', clientSecret? }`.
+- Proxy aceitar: `POST /tasks/start { taskId }` → response `{ status: 'succeeded' }` (cobrança off-session com captura automática; sem autenticação no aparelho do proxy).
   - `succeeded`: toast OK e refetch.
-  - `requires_action`: chamar `confirmPayment(clientSecret)` do `@stripe/stripe-react-native`. Em caso de sucesso, fazer poll de `GET /tasks/:id` até `payment.status === 'succeeded'` (ou aguardar webhook).
   - Toasts OK: `Tarefa aceita! Boa execução.`
-  - Erros: `CANNOT_START_OWN_TASK`, `USER_NOT_PROXY`, `TASK_NOT_AVAILABLE`, `PAYMENT_FAILED`.
+  - Erros: `CANNOT_START_OWN_TASK`, `USER_NOT_PROXY`, `PROXY_ACCOUNT_NOT_READY` (409 — abrir a Carteira), `TASK_NOT_AVAILABLE`, `PAYMENT_FAILED`, `PAYMENT_PENDING` (409 — tentar de novo em instantes).
 - Cliente validar: `POST /tasks/validate { taskId, rating?, comment? }` → toast OK `Pagamento liberado. Obrigado!`.
-  - Erros: `CANNOT_VALIDATE_TASK`, `TASK_NOT_AVAILABLE_FOR_VALIDATION`, `PROXY_ACCOUNT_NOT_READY` (409 — informar o cliente que o pagamento ao proxy não foi possível agora), `TRANSFER_FAILED`.
+  - Erros: `CANNOT_VALIDATE_TASK`, `TASK_STATUS_CONFLICT` (409 — a tarefa mudou de estado; refetch), `PROXY_ACCOUNT_NOT_READY` (409 — informar o cliente que o pagamento ao proxy não foi possível agora), `PAYMENT_NOT_CONFIRMED`, `PAYMENT_DISPUTED`, `TASK_TRANSFER_FAILED`.
 - Cliente cancelar: `POST /tasks/cancel { taskId }` → toast OK `Tarefa cancelada.`. Erros: `CANNOT_CANCEL_TASK`, `REFUND_FAILED`.
 
 **Avaliação** (estrelas 1-5 + comentário opcional): **enviar junto com validação** no mesmo `POST /tasks/validate`. Backend insere na tabela `Ratings` e recomputa a média em `Users.rating`.
@@ -902,7 +983,7 @@ Request:
 - Heading "Última etapa" + sub "Envie uma foto de prova pra liberar o pagamento."
 - Área grande (aspect 4:3) para foto — tap abre câmera via `expo-image-picker`. Estados: vazio (dashed + ícone câmera) / preenchido (imagem + ✓).
 - Campo opcional "Observações (opcional)" (textarea).
-- Botão "Enviar e finalizar" (disabled até foto).
+- Botão "Enviar e finalizar" (disabled até foto; a foto é obrigatória).
 
 **API**: `POST /tasks/finish` (multipart/form-data)
 
@@ -911,13 +992,18 @@ Request:
 fields:
   taskId: string
 files:
-  photo: <jpg|png|webp>
+  file: <jpg|png|webp|heic>   # obrigatório (campo multipart `file`)
 ```
 
 Erros:
+- `PROOF_PHOTO_REQUIRED` (400) → toast.
 - `FILE_FORMAT_NOT_SUPPORTED` → toast.
-- `TASK_STARTED_AT_NOT_VALID` → toast.
+- `FILE_TOO_LARGE` (413) → toast.
 - `CANNOT_FINISH_TASK` → toast.
+- `TASK_STATUS_CONFLICT` (409) → toast e refetch.
+- `PAYMENT_NOT_CONFIRMED` / `PAYMENT_DISPUTED` (409) → toast.
+
+Sem limite de tempo para finalizar a tarefa. A foto é guardada como JPEG (lado maior até 1600 px) e lida pelo dono ou executor em `GET /tasks/:id/proof`.
 
 **Toast OK**: `Enviado! Aguardando validação do cliente.`
 **Navegação**: sucesso → `router.back()` (volta ao detalhe) e refetch.
@@ -970,7 +1056,8 @@ Erros:
 
 **API**:
 - `GET /card/fetch` → `{ id, userId, brand, last4, stripeCardId }` (ou 404 `NO_SAVED_CARD_FOUND`).
-- `POST /card/create { token }` → o app precisa **tokenizar o cartão** com `@stripe/stripe-react-native` (`createPaymentMethod`) e enviar o token. **MVP**: usar `<CardField>` do `@stripe/stripe-react-native` ao invés de form manual.
+- `POST /card/setup-intent` → `{ clientSecret, setupIntentId }`; o app confirma o SetupIntent com `@stripe/stripe-react-native` e então chama `POST /card/create { paymentMethodId }`. **MVP**: usar `<CardField>` do `@stripe/stripe-react-native` ao invés de form manual.
+  - Erros: `CARD_NOT_CONFIRMED` (400), `CARD_ALREADY_EXISTS` (409), `CARD_CREATION_FAILED`.
 - `DELETE /card/:id` → soft delete + detach na Stripe.
   - Erros: `CARD_NOT_FOUND`, `CANNOT_DELETE_CARD`.
 
@@ -1005,8 +1092,8 @@ Erros:
 | Canceladas     | `canceled`                                                    |
 
 **APIs**:
-- Em andamento: `GET /tasks/active` (owner OU executor).
-- Concluídas / Canceladas: `GET /auth/transaction-history` → juntar `tasksCreated` + `tasksCompleted` e filtrar por status no cliente.
+- Em andamento: `GET /tasks/active` (owner OU executor; para o dono: `available`, `in_progress`, `verification_required`).
+- Concluídas / Canceladas: `GET /auth/transaction-history?page=1` → `{ tasksCreated, tasksCompleted, page, perPage: 20, hasMore }`. Cada item: `{ id, title, status, city, offeredPrice, netAmount, createdAt, completedAt, canceledAt }`. `tasksCreated` são as tarefas que o usuário criou (qualquer status); `tasksCompleted` são as que ele executou com status `completed`, `canceled` ou `payout_failed`. `netAmount` vem das colunas gravadas: para o proxy é `proxyEarnings` (0 se cancelada); para o cliente é `chargedAmount` só quando a tarefa foi concluída. Juntar as duas listas e filtrar por status no cliente; pedir a próxima página enquanto `hasMore === true`.
 
 **Copy empty**: "Nada por aqui" / "Suas tarefas vão aparecer nesta aba quando houver atualização."
 
@@ -1023,34 +1110,32 @@ Erros:
 **Layout**:
 1. Card de perfil: avatar (64px) + nome + email + telefone.
 2. Stats grid (3 colunas): Criadas/Concluídas, Avaliação, Cidade.
-3. Seção **Conta**: Editar perfil, Documentos (badge "Verificado" se aplicável), Segurança.
+3. Seção **Conta**: Editar dados, Segurança.
 4. Seção **Mais**: Termos e Privacidade, Sair, **Excluir conta** (destrutivo).
 5. Rodapé: "Proxy v1.0.0 — feito no Brasil 🇧🇷".
 6. `BottomTabBar`.
 
-**Editar perfil**: tela secundária com form → `POST /auth/update-profile` → devolve novo JWT → atualizar SecureStore.
+**Editar dados** (D14): tela secundária que edita só **nome** e **telefone** → `POST /auth/update-profile { name?, phoneNumber? }` → devolve `{ session }` (novo JWT) → atualizar SecureStore. E-mail, tipo de perfil, avatar e senha não são editáveis aqui.
 
 **Sair**: confirmar em alert → limpar SecureStore → `router.replace('/')`.
 
 **Excluir conta**:
 - Alert duplo de confirmação ("Tem certeza? Esta ação não pode ser desfeita.").
-- `DELETE /auth/account` → backend faz soft delete (anonimiza PII e seta `isDeleted=true`).
-- Erro `USER_HAS_ACTIVE_TASKS` (409) → toast "Não é possível excluir a conta: existem tarefas em andamento." e abrir o histórico.
+- `DELETE /auth/account` → backend faz soft delete (anonimiza PII, seta `isDeleted=true`, cancela automaticamente as tarefas `available` do usuário e revoga todos os refresh tokens).
+- Erro `USER_HAS_ACTIVE_TASKS` (409) → toast com a mensagem do dicionário (tarefa `in_progress` ou `verification_required` como dono ou executor) e abrir o histórico.
 - Sucesso → limpar SecureStore → `router.replace('/')`.
 
 **Copy**:
 - Títulos de seção: "Conta", "Mais".
-- "Verificado" (badge em Documentos).
 - "Sair" em vermelho.
 - "Excluir conta" em vermelho.
 
 **APIs**:
-- `POST /auth/update-profile { name, userType, avatarUrl?, password?, phoneNumber? }` → `{ session: string }`.
+- `POST /auth/update-profile { name?, phoneNumber? }` (ao menos um campo; `phoneNumber` pode ser `null`) → `{ session: string }`.
 - `DELETE /auth/account` → 204 No Content.
 
 **Edge cases**:
 - Trocar de `userType` manualmente não está no MVP (remover opção "trocar para Proxy/Cliente" do protótipo — no backend é um campo real, não um modo).
-- Documentos de Proxy: se `isVerified === false`, badge "Pendente".
 
 ---
 
@@ -1058,8 +1143,8 @@ Erros:
 
 ### 9.1 Gaps remanescentes
 1. **Estados `accepted` / `on_the_way`** — continuam órfãos no enum do backend. Decisão **mantida (Opção A)**: ignorar na UI.
-2. **3DS no `POST /tasks/start`**: o backend pode retornar `requires_action`. O app precisa implementar o fluxo de `confirmPayment` com `@stripe/stripe-react-native` — não é opcional se quisermos aceitar cartões com 3DS habilitado (a maioria dos cartões brasileiros).
-3. **Geocoding** para `POST /tasks/create`: backend exige `state`, `zipCode`, `lat`, `lng`. Decidir entre form manual ou integração com geocoder (ex.: `expo-location` + Google Geocoding).
+2. **3DS ao salvar o cartão**: a autenticação acontece uma vez, na confirmação do SetupIntent (`POST /card/setup-intent`) com `@stripe/stripe-react-native`. `POST /tasks/start` cobra off-session e não exige nenhuma ação no aparelho do proxy.
+3. **Endereço** em `POST /tasks/create`: o backend exige `formattedAddress`, `city`, `state`, `locationLat` e `locationLng`; o app obtém tudo da busca Google Places (app-side, Phase 3 P3-T14b; a API só valida `city`/`state`) (§8.8).
 4. **Push notifications** (futuro, não MVP): "Sua tarefa foi aceita", "Aguardando validação", "Pagamento liberado".
 
 ### 9.2 Ordem sugerida de implementação
@@ -1067,8 +1152,8 @@ Erros:
 2. Cliente HTTP + interceptor de erros + tratamento de 401/429.
 3. Auth (Splash, Escolher perfil, Cadastro, Login, Recuperar senha).
 4. Cartões (com `@stripe/stripe-react-native`) — pré-requisito para criar tarefa.
-5. Home Cliente + Criar tarefa (happy path, sem 3DS).
-6. Home Proxy + Detalhe de tarefa (`GET /tasks/:id`) + Start (com 3DS).
+5. Home Cliente + Criar tarefa (happy path).
+6. Home Proxy + Detalhe de tarefa (`GET /tasks/:id`) + Start.
 7. Finalizar tarefa (foto via `expo-image-picker`) + Validar (cliente, com rating).
 8. Carteira + Stripe Connect onboarding.
 9. Histórico + Perfil + exclusão de conta.
@@ -1077,6 +1162,6 @@ Erros:
 ### 9.3 Decisões em aberto
 - Biblioteca de toast: `sonner-native` (recomendado, idiomático React) vs `burnt` (mais nativo).
 - Data fetching: `@tanstack/react-query` **fortemente recomendado** — caching, retry exponencial em 429, invalidação por chave após mutations.
-- Tokenização de cartão: **`@stripe/stripe-react-native`** (SDK oficial — necessário também para 3DS).
-- Geolocalização: `expo-location` para distância na lista do Proxy; decidir geocoder ainda.
+- Salvar cartão: **`@stripe/stripe-react-native`** (SDK oficial — confirma o SetupIntent, inclusive o 3DS).
+- Geolocalização: `expo-location` para distância na lista do Proxy; busca de endereço via Google Places.
 - Push notifications (futuro): `expo-notifications` + deep link `proxyapp://tasks/:id`.
