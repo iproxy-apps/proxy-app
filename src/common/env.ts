@@ -1,4 +1,5 @@
-import { type AppEnv, readEnv } from '@/common/read-env'
+import { readEnv } from '@/common/read-env'
+import type { AppEnv } from '@/common/read-env'
 
 // Static EXPO_PUBLIC_* member access is required for Expo build-time inlining.
 export const env: AppEnv = readEnv({

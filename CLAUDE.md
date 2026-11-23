@@ -4,7 +4,7 @@ Mobile app (React Native / Expo) for the Proxy marketplace — a task/service ma
 
 ## Stack
 
-- **Runtime**: Expo SDK 54 (React Native 0.81, React 19)
+- **Runtime**: Expo SDK 57 (React Native 0.86, React 19.2)
 - **Language**: TypeScript (strict)
 - **Routing**: Expo Router 6 (file-based, `app/` directory, typed routes enabled)
 - **Styling**: NativeWind 4 (Tailwind CSS for React Native)
