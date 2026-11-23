@@ -9,23 +9,24 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | Phase 0 boundary (LOOP §5.3) |
-| step | device (full Maestro regression on A + smoke on B with the rebuilt app), then final whole-branch review |
-| files touched | none (all 16 Phase 0 tasks committed); api Phase 0 complete at `44e09cf` |
-| last gate | app @P0-T16 commit: `npm ci` ✔ · tsc 0 · eslint 0 · `npm test` 10/10 · `expo install --check` ✔ · maestro: pending boundary run on the rebuilt app (A rebuilt + B installed 2026-11-23) |
-| last gate (api) | api @44e09cf (P0-T12, orchestrator-run 2026-11-23): type-check (strict) 0 · eslint 0/0 on 196 files · jest 187/187 (44 suites) · e2e 26/26 suites, 1 skipped (parked delete-account → Phase 2 D13), 131 passed — **no known reds**: a gate is green only when every step exits 0 |
+| task | `P1-T01` |
+| step | pick |
+| files touched | — ; api Phase 0 complete at `44e09cf` |
+| last gate | app @ec22198 (Phase 0 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · `expo install --check` ✔ · maestro on rebuilt app: A 4/4 flows (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.011% (forgot-password caret) |
+| last gate (api) | api @e0f01f6 (Phase 0 close, orchestrator-run 2026-11-23; jest also green with `.env` absent): type-check (strict) 0 · eslint 0/0 on 196 files · jest 187/187 (44 suites) · e2e 26/26 suites, 1 skipped (parked delete-account → Phase 2 D13), 131 passed — **no known reds**: a gate is green only when every step exits 0 |
 | waiting on owner | — |
-| next task | `P1-T01` after the boundary closes |
+| next task | `P1-T02` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity, D24 static-site origin,
   D26 developer account type (Play closed test clock); plus
   confirmation of every `DEFAULT (confirm)` row (D1, D3, D5–D9, D12, D14, D16, D18, D25).
-- **Phase state:** L done · P0 todo · P1 todo · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
+- **Phase state:** L done · P0 done (CI runs awaiting push) · P1 todo · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | **Phase 0 closed.** Boundary regression green on rebuilt A/B, visual freeze held, final review fix wave (api `e0f01f6`, app `ec22198`). Handoff not written (ai-memory offline). Next: P1-T01. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T16 done (app CI, awaiting push). All 16 Phase 0 tasks committed; boundary regression starts. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T15 done (fail-fast env module). Simulator A rebuild started after P0-T13 deps (ios/ regenerated: stale Podfile.lock). P0-T16 card written. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P0-T14 done (app jest runner; 4 plan defects ruled). P0-T15 card written. |
@@ -80,6 +81,10 @@ Tasks: 5
 | P0-T16 | App `.nvmrc`, `engines`, GitHub Actions workflow | P0-T13, P0-T14, P0-T15 | done (awaiting push) | this commit · ci.yml identical to the plan YAML · local CI sequence exit 0 (npm ci, tsc 0, eslint 0, jest 10/10) · workflow run pending the owner's push |
 
 Tasks: 16
+
+**Phase 0 boundary (2026-11-23, LOOP §5.3):** api gate at `e0f01f6`: type-check 0 · eslint 0/0 · jest 187/187 (also with `.env` removed, as CI runs it) · e2e 26/26 suites, 1 skipped, 132 passed. App gate at `ec22198`: tsc 0 · eslint 0 · jest 10/10 · `expo install --check` ✔. Device: `ios/` regenerated (stale Podfile.lock after P0-T13), A rebuilt, B installed from the same build; Maestro A 4/4 (`smoke` + `baseline`), B 1/1 `smoke`; `scripts/visual-diff.js` vs `visual-baseline/` worst 0.011% (forgot-password caret). Two-device script §6.3: not yet scripted (nothing in Phase 0 adds flows). Final whole-branch review found 2 Important (unit tests needed a local `.env`; throttler `skipIf` ignored production) → fixed in `e0f01f6` / `ec22198`. DECISIONS: nothing new to settle (D17, D28 already SETTLED; D25 stays `DEFAULT (confirm)`, owner's call). ai-memory handoff: **not written**, server offline (Mac Pro unreachable on tailscale); git is canonical. CI runs for P0-T12/P0-T16 await the owner's push.
+
+**Parked for later phases (from the final review):** Phase 1 — `start-task.service.ts` Stripe `amount: offeredPrice * 100` is never rounded (19.99 → 1998.999…), money.ts must produce integer cents. Phase 2 — malformed JSON / body-parser errors may surface as 500 `STANDARD_ERROR` instead of a Portuguese 400; verify in the error-contract work; `delete-account` case un-skip (D13). Phase 5 / D25 — deploy runbook must set `TRUST_PROXY=1` behind Railway/Render (or boot should refuse without it); Dockerfile runtime runs as root (`USER node` + writable upload dir); proof uploads go to `process.cwd()/src/tmp` and vanish on redeploy; `/health` DB ping has no connect timeout. Loop — two e2e specs flaked once each during the fix wave (`create-task`, `fetch-card` 404 case), passed on rerun; watch for recurrence.
 
 ## Phase 1 — Money core (api) — `plans/phase-1-money-core.md`
 
