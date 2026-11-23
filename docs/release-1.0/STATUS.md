@@ -9,24 +9,25 @@ phases" section because they are briefs/checklists, not task tables.
 
 | Field | Value |
 |---|---|
-| task | Phase 1 boundary |
-| step | phase boundary (regression + final review running) |
+| task | `P2-T01` |
+| step | pick |
 | files touched | — ; api Phase 0 complete at `44e09cf` |
-| last gate | app @ec22198 (Phase 0 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · `expo install --check` ✔ · maestro on rebuilt app: A 4/4 flows (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.011% (forgot-password caret) |
-| last gate (api) | api @cc3ddab (P1-T16, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 280/280 (48 suites) · e2e 32/32 suites, 227 passed, 1 skipped · CI on `release-1.0` green @d114035 |
+| last gate | app @b64fc44 (Phase 1 close, 2026-11-23): tsc 0 · eslint 0 · `npm test` 10/10 · maestro A 4/4 (smoke + baseline), B 1/1 smoke · visual-diff vs baseline worst 0.000 % on 15 screens |
+| last gate (api) | api @03e798a (Phase 1 close, 2026-11-23, orchestrator-run): type-check 0 · eslint 0 · jest 292/292 (48 suites) · e2e 32/32 suites, 229 passed, 1 skipped · webhooks exercised via Stripe CLI · CI on `release-1.0` green |
 | waiting on owner | — (decision round closed 2026-11-23; D23/D26 deferred by the owner; Google Places key (D16) needed before the P3 address task) |
-| next task | `P2-T01` (after the Phase 1 boundary) |
+| next task | `P2-T02` |
 
 - **Owner inputs still open** (see `DECISIONS.md`): D23 store identity and D26 developer account type
   (both deferred by the owner to "when the version is nearly final"); Google Cloud Places API key for D16
   (needed by the Phase 3 address task, goes in the app `.env` only).
 - **Owner decision round closed (2026-11-23):** every `DEFAULT (confirm)` row is now SETTLED in `DECISIONS.md`; D1 (80/20, min R$ 20), D3 (charge at start, automatic capture, transfer at validate), D9 (30 m access + 60 d rotating refresh token), D12 (no documents stored at all), D14 (edit profile name/phone IN 1.0), D16 (Google Places autocomplete + served-city whitelist) changed; D23/D26 deferred by the owner until the app is nearly final; D24 Cloudflare Pages or Vercel; D25 Resend preferred. Plans for phases 1–3 carry an `## Amendments (2026-11-23 …)` section with the rewritten tasks and rulings.
-- **Phase state:** L done · P0 done (CI green on GitHub) · P1 tasks done (T01–T18), boundary in progress · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
+- **Phase state:** L done · P0 done (CI green on GitHub) · P1 done (2026-11-23) · P2 todo · P3 todo · P4 todo (brief ready) · P5 todo · P6 todo.
 
 ## Session log (newest first)
 
 | Date | Session | What happened |
 |---|---|---|
+| 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | **Phase 1 closed.** Final review + fix wave (api `03e798a`), boundary regression green (Maestro A 4/4, B 1/1, visual-diff 0.000 %), webhooks exercised live. Parked items recorded. Next: `P2-T01` (Phase 2 auth & API hardening). Owner inputs still open: Google Places key before P3-T14b; D23/D26 when near final. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T17 done (api `fe30eff`) after one fix round. All 18 Phase 1 tasks committed. Boundary started: webhook exercised via Stripe CLI (events dispatched, deduped, "matches no task" for the CLI fixture as expected), Maestro regression + whole-branch review running. |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T18 done (app, this commit): wire types for the Phase 1 contract; review clean, app gate green. P1-T17 (api CLAUDE.md) running in parallel (different repo). |
 | 2026-11-23 | Claude Fable 5.1, MacBook Pro M5 | P1-T16 done (api `cc3ddab`): auto-release job; review clean, gate green. P1-T17 (CLAUDE.md rewrite) dispatched. |
@@ -110,6 +111,8 @@ Tasks: 16
 - **P1-T10 (2026-11-23):** the plan said `sharp` needs a glibc image; `sharp` ≥ 0.33 ships musl prebuilts, so the `node:22-alpine` Dockerfile is expected to work — verify `docker build` + a `normalizeProofImage` smoke run inside the image at Phase 5 before deploying.
 - **P1-T12 review follow-ups (2026-11-23):** the transfer idempotency key `task:<id>:transfer` protects a retry only inside Stripe's 24 h window; after that a re-validate (e.g. by the auto-release job) could create a second transfer from the same charge — P1-T16 must treat `TASK_STATUS_CONFLICT` from a race as harmless, and Phase 2/5 should add a "find existing transfer by `transfer_group`" check before retrying a transfer on a task that already left `verification_required`.
 - **P1-T14 review follow-ups (2026-11-23):** (a) webhook dedupe marks an event processed before the handler finishes, so a Stripe retry arriving while the first attempt is still running gets 200 and the event is lost if that attempt then fails — Phase 2/5: add `processedAt` to `stripe_events` and answer non-2xx while a fresh claim has no `processedAt`; (b) the shared refund key `task:<id>:refund` assumes one charged PaymentIntent per task — true today (claim-first start), revisit together with the 24 h idempotency note if a reconciler ever re-charges; (c) `charge.refunded` marks `refunded` from any status, incl. `disputed` — P1-T15 may guard with `status in (succeeded, pending)`.
+- **Phase 1 final review (2026-11-23, opus) — parked Minors:** M3 legacy `pending` branch of `payment_failed` writes task status outside the CAS helpers (legacy rows only; route through `releaseClaim` or document); M5 a dispute on a `refunded` row overwrites it with `disputed` (nothing reads it today); M6 `recordTransfer` failure after a successful transfer leaves `completed` + `transferId null` + wallet not credited → Phase 2 reconciler; M7 auto-release `take 200` oldest-first can starve newer tasks behind permanently-skipped ones (exclude disputed / cursor) → Phase 2; M8 before the first `migrate deploy` on a real DB run `SELECT "paymentIntent", count(*) FROM payments GROUP BY 1 HAVING count(*)>1` (unique index) and note the migration folder order (independent DDL, deploy-safe); M9 a dispute arriving before its payment row exists is marked processed and lost (same family as P1-T14(a) `processedAt`). Worse-than-parked notes: P1-T08(b) "cancel covers a claim without payment row" only holds within 1 h and not after finish (closed by fix wave I-1); P1-T12 24 h key window made routine by the daily cron (closed by fix wave I-2: reuse transfer by `transfer_group`).
+- **Phase 1 fix-wave re-review (2026-11-23):** N2 — `replayOwnClaim` reads the latest payment row by `createdAt`; a legacy task carrying an old `failed` row (written by the legacy `payment_failed` branch) would answer `PAYMENT_PENDING` to every retry after an unknown charge outcome instead of resuming the key (pre-launch data only; fix: ignore `failed` rows or only rows created at/after the claim `startedAt`) → Phase 2; a claim with a `refunded` row stays `in_progress` after the client's 1 h cancel window → reconciler (P1-T08(b)).
 
 ## Phase 1 — Money core (api) — `plans/phase-1-money-core.md`
 
@@ -135,6 +138,8 @@ Tasks: 16
 | P1-T18 | App wire types follow the new contract (types only + one dead branch) | P1-T05, P1-T07, P1-T08 | todo |  |
 
 Tasks: 18
+
+**Phase 1 boundary (2026-11-23, LOOP §5.3) — regression evidence:** api gate at `fe30eff`: type-check 0 · eslint 0 · jest 280/280 (48 suites) · e2e 32/32 suites, 227 passed, 1 skipped (`delete-account`, Phase 2 D13) · `money.ts` 100 % covered (P1-T01) · GitHub Actions green for every pushed commit. Webhooks exercised live with the Stripe CLI through the loop stack (`stripe trigger payment_intent.succeeded`): events dispatched, deduped into `stripe_events`, the CLI fixture intent logged as "matches no task" (expected), unhandled types answered 200. App at `b64fc44`: tsc 0 · eslint 0 · jest 10/10 · Maestro A 4/4 (smoke + baseline) · B 1/1 smoke · visual-diff vs `visual-baseline/` worst **0.000 %** on 15 screens (Phase 1 changed types only). Two-device script §6.3: not runnable yet — the app still sends the Phase 0 start/create payloads until Phase 3 wires the new contract; the money path was exercised end to end by the e2e suites (start/finish/validate/cancel/webhooks/auto-release) instead. **Whole-branch final review (opus):** no Critical; 2 Important closed by a single fix wave (api `03e798a`): `finish` now requires a confirmed charge (409 `PAYMENT_NOT_CONFIRMED`) so a claim whose charge is unknown can never reach `verification_required`; `validate` reuses an existing transfer found by `transfer_group` before creating one (closes the 24 h idempotency-window double transfer that the daily auto-release made routine), refusing reversed transfers. Also folded in: start refunds (shared key, status-checked) and answers 400 when the task was cancelled during the charge; an own claim with any non-`succeeded` payment row never creates a second PaymentIntent; the webhook `payment_failed` release sets `cardActionRequired`. Re-review verdict: **ship Phase 1**. Final api gate at `03e798a`: type-check 0 · eslint 0 · jest 292/292 (48 suites) · e2e 32/32, 229 passed, 1 skipped.
 
 ## Phase 2 — Auth & API hardening (api) — `plans/phase-2-auth-api.md`
 
